@@ -47,7 +47,9 @@ const ContentManager: React.FC = () => {
   const [showWeekModal, setShowWeekModal] = useState(false);
   const [showLectureModal, setShowLectureModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [deleteItem, setDeleteItem] = useState<{ type: string; item: any } | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'weeks' | 'lectures' | 'assignments'>('overview');
 
   useEffect(() => {
@@ -83,6 +85,7 @@ const ContentManager: React.FC = () => {
     }
   };
 
+  // Course handlers
   const handleCreateCourse = async (courseData: any) => {
     try {
       const courseId = await createCourse({
@@ -95,11 +98,45 @@ const ContentManager: React.FC = () => {
       toast.success('Course created successfully');
       fetchCourses();
       setShowCourseModal(false);
+      setEditingItem(null);
     } catch (error) {
       toast.error('Failed to create course');
     }
   };
 
+  const handleUpdateCourse = async (courseData: any) => {
+    if (!editingItem) return;
+    
+    try {
+      await updateCourse(editingItem.id, {
+        ...courseData,
+        updatedAt: new Date().toISOString()
+      });
+      toast.success('Course updated successfully');
+      fetchCourses();
+      setShowCourseModal(false);
+      setEditingItem(null);
+    } catch (error) {
+      toast.error('Failed to update course');
+    }
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    try {
+      await deleteCourse(courseId);
+      toast.success('Course deleted successfully');
+      fetchCourses();
+      if (selectedCourse?.id === courseId) {
+        setSelectedCourse(null);
+      }
+      setShowDeleteModal(false);
+      setDeleteItem(null);
+    } catch (error) {
+      toast.error('Failed to delete course');
+    }
+  };
+
+  // Week handlers
   const handleCreateWeek = async (weekData: any) => {
     if (!selectedCourse) return;
     
@@ -113,11 +150,41 @@ const ContentManager: React.FC = () => {
       toast.success('Week created successfully');
       fetchWeeks(selectedCourse.id);
       setShowWeekModal(false);
+      setEditingItem(null);
     } catch (error) {
       toast.error('Failed to create week');
     }
   };
 
+  const handleUpdateWeek = async (weekData: any) => {
+    if (!selectedCourse || !editingItem) return;
+    
+    try {
+      await updateWeek(selectedCourse.id, editingItem.id, weekData);
+      toast.success('Week updated successfully');
+      fetchWeeks(selectedCourse.id);
+      setShowWeekModal(false);
+      setEditingItem(null);
+    } catch (error) {
+      toast.error('Failed to update week');
+    }
+  };
+
+  const handleDeleteWeek = async (weekId: string) => {
+    if (!selectedCourse) return;
+    
+    try {
+      await deleteWeek(selectedCourse.id, weekId);
+      toast.success('Week deleted successfully');
+      fetchWeeks(selectedCourse.id);
+      setShowDeleteModal(false);
+      setDeleteItem(null);
+    } catch (error) {
+      toast.error('Failed to delete week');
+    }
+  };
+
+  // Lecture handlers
   const handleCreateLecture = async (lectureData: any) => {
     if (!selectedCourse || !lectureData.weekId) return;
     
@@ -131,11 +198,41 @@ const ContentManager: React.FC = () => {
       toast.success('Lecture created successfully');
       fetchWeeks(selectedCourse.id);
       setShowLectureModal(false);
+      setEditingItem(null);
     } catch (error) {
       toast.error('Failed to create lecture');
     }
   };
 
+  const handleUpdateLecture = async (lectureData: any) => {
+    if (!selectedCourse || !editingItem) return;
+    
+    try {
+      await updateLecture(selectedCourse.id, editingItem.weekId, editingItem.id, lectureData);
+      toast.success('Lecture updated successfully');
+      fetchWeeks(selectedCourse.id);
+      setShowLectureModal(false);
+      setEditingItem(null);
+    } catch (error) {
+      toast.error('Failed to update lecture');
+    }
+  };
+
+  const handleDeleteLecture = async (weekId: string, lectureId: string) => {
+    if (!selectedCourse) return;
+    
+    try {
+      await deleteLecture(selectedCourse.id, weekId, lectureId);
+      toast.success('Lecture deleted successfully');
+      fetchWeeks(selectedCourse.id);
+      setShowDeleteModal(false);
+      setDeleteItem(null);
+    } catch (error) {
+      toast.error('Failed to delete lecture');
+    }
+  };
+
+  // Assignment handlers
   const handleCreateAssignment = async (assignmentData: any) => {
     if (!selectedCourse || !assignmentData.weekId) return;
     
@@ -148,8 +245,83 @@ const ContentManager: React.FC = () => {
       toast.success('Assignment created successfully');
       fetchWeeks(selectedCourse.id);
       setShowAssignmentModal(false);
+      setEditingItem(null);
     } catch (error) {
       toast.error('Failed to create assignment');
+    }
+  };
+
+  const handleUpdateAssignment = async (assignmentData: any) => {
+    if (!selectedCourse || !editingItem) return;
+    
+    try {
+      await updateAssignment(selectedCourse.id, editingItem.weekId, editingItem.id, assignmentData);
+      toast.success('Assignment updated successfully');
+      fetchWeeks(selectedCourse.id);
+      setShowAssignmentModal(false);
+      setEditingItem(null);
+    } catch (error) {
+      toast.error('Failed to update assignment');
+    }
+  };
+
+  const handleDeleteAssignment = async (weekId: string, assignmentId: string) => {
+    if (!selectedCourse) return;
+    
+    try {
+      await deleteAssignment(selectedCourse.id, weekId, assignmentId);
+      toast.success('Assignment deleted successfully');
+      fetchWeeks(selectedCourse.id);
+      setShowDeleteModal(false);
+      setDeleteItem(null);
+    } catch (error) {
+      toast.error('Failed to delete assignment');
+    }
+  };
+
+  // Edit handlers
+  const handleEditCourse = (course: Course) => {
+    setEditingItem(course);
+    setShowCourseModal(true);
+  };
+
+  const handleEditWeek = (week: Week) => {
+    setEditingItem(week);
+    setShowWeekModal(true);
+  };
+
+  const handleEditLecture = (lecture: Lecture) => {
+    setEditingItem(lecture);
+    setShowLectureModal(true);
+  };
+
+  const handleEditAssignment = (assignment: Assignment) => {
+    setEditingItem(assignment);
+    setShowAssignmentModal(true);
+  };
+
+  // Delete confirmation handlers
+  const confirmDelete = (type: string, item: any) => {
+    setDeleteItem({ type, item });
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteItem) return;
+
+    switch (deleteItem.type) {
+      case 'course':
+        await handleDeleteCourse(deleteItem.item.id);
+        break;
+      case 'week':
+        await handleDeleteWeek(deleteItem.item.id);
+        break;
+      case 'lecture':
+        await handleDeleteLecture(deleteItem.item.weekId, deleteItem.item.id);
+        break;
+      case 'assignment':
+        await handleDeleteAssignment(deleteItem.item.weekId, deleteItem.item.id);
+        break;
     }
   };
 
@@ -185,18 +357,39 @@ const ContentManager: React.FC = () => {
               key={course.id}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setSelectedCourse(course)}
-              className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+              className={`p-4 rounded-lg border-2 cursor-pointer transition-all relative ${
                 selectedCourse?.id === course.id
                   ? 'border-primary-600 bg-primary-600/10'
                   : 'border-dark-600 hover:border-dark-500'
               }`}
             >
-              <h3 className="text-white font-semibold mb-2">{course.title}</h3>
-              <p className="text-dark-300 text-sm mb-3">{course.description}</p>
-              <div className="flex items-center justify-between text-xs text-dark-400">
-                <span>{course.weeks?.length || 0} weeks</span>
-                <span>Updated {new Date(course.updatedAt).toLocaleDateString()}</span>
+              <div onClick={() => setSelectedCourse(course)}>
+                <h3 className="text-white font-semibold mb-2">{course.title}</h3>
+                <p className="text-dark-300 text-sm mb-3">{course.description}</p>
+                <div className="flex items-center justify-between text-xs text-dark-400">
+                  <span>{course.weeks?.length || 0} weeks</span>
+                  <span>Updated {new Date(course.updatedAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+              <div className="absolute top-2 right-2 flex space-x-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditCourse(course);
+                  }}
+                  icon={<Edit3 className="h-3 w-3" />}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    confirmDelete('course', course);
+                  }}
+                  icon={<Trash2 className="h-3 w-3" />}
+                />
               </div>
             </motion.div>
           ))}
@@ -274,7 +467,17 @@ const ContentManager: React.FC = () => {
                   </div>
                   
                   <div className="bg-dark-700 p-6 rounded-lg">
-                    <h3 className="text-white font-semibold mb-4">Course Details</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-white font-semibold">Course Details</h3>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditCourse(selectedCourse)}
+                        icon={<Edit3 className="h-4 w-4" />}
+                      >
+                        Edit Course
+                      </Button>
+                    </div>
                     <div className="space-y-3">
                       <div>
                         <label className="text-dark-300 text-sm">Title</label>
@@ -328,8 +531,18 @@ const ContentManager: React.FC = () => {
                             </div>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <Button variant="ghost" size="sm" icon={<Edit3 className="h-4 w-4" />} />
-                            <Button variant="ghost" size="sm" icon={<Trash2 className="h-4 w-4" />} />
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleEditWeek(week)}
+                              icon={<Edit3 className="h-4 w-4" />} 
+                            />
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => confirmDelete('week', week)}
+                              icon={<Trash2 className="h-4 w-4" />} 
+                            />
                           </div>
                         </div>
                         
@@ -388,8 +601,18 @@ const ContentManager: React.FC = () => {
                               }`}>
                                 {lecture.isPublished ? 'Published' : 'Draft'}
                               </span>
-                              <Button variant="ghost" size="sm" icon={<Edit3 className="h-4 w-4" />} />
-                              <Button variant="ghost" size="sm" icon={<Trash2 className="h-4 w-4" />} />
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleEditLecture(lecture)}
+                                icon={<Edit3 className="h-4 w-4" />} 
+                              />
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => confirmDelete('lecture', lecture)}
+                                icon={<Trash2 className="h-4 w-4" />} 
+                              />
                             </div>
                           </div>
                           
@@ -447,8 +670,18 @@ const ContentManager: React.FC = () => {
                               }`}>
                                 {assignment.isPublished ? 'Published' : 'Draft'}
                               </span>
-                              <Button variant="ghost" size="sm" icon={<Edit3 className="h-4 w-4" />} />
-                              <Button variant="ghost" size="sm" icon={<Trash2 className="h-4 w-4" />} />
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleEditAssignment(assignment)}
+                                icon={<Edit3 className="h-4 w-4" />} 
+                              />
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => confirmDelete('assignment', assignment)}
+                                icon={<Trash2 className="h-4 w-4" />} 
+                              />
                             </div>
                           </div>
                           
@@ -486,34 +719,87 @@ const ContentManager: React.FC = () => {
       {/* Modals */}
       <CourseModal
         isOpen={showCourseModal}
-        onClose={() => setShowCourseModal(false)}
-        onSubmit={handleCreateCourse}
+        onClose={() => {
+          setShowCourseModal(false);
+          setEditingItem(null);
+        }}
+        onSubmit={editingItem ? handleUpdateCourse : handleCreateCourse}
         course={editingItem}
       />
       
       <WeekModal
         isOpen={showWeekModal}
-        onClose={() => setShowWeekModal(false)}
-        onSubmit={handleCreateWeek}
+        onClose={() => {
+          setShowWeekModal(false);
+          setEditingItem(null);
+        }}
+        onSubmit={editingItem ? handleUpdateWeek : handleCreateWeek}
         week={editingItem}
         weekNumber={weeks.length + 1}
       />
       
       <LectureModal
         isOpen={showLectureModal}
-        onClose={() => setShowLectureModal(false)}
-        onSubmit={handleCreateLecture}
+        onClose={() => {
+          setShowLectureModal(false);
+          setEditingItem(null);
+        }}
+        onSubmit={editingItem ? handleUpdateLecture : handleCreateLecture}
         lecture={editingItem}
         weeks={weeks}
       />
       
       <AssignmentModal
         isOpen={showAssignmentModal}
-        onClose={() => setShowAssignmentModal(false)}
-        onSubmit={handleCreateAssignment}
+        onClose={() => {
+          setShowAssignmentModal(false);
+          setEditingItem(null);
+        }}
+        onSubmit={editingItem ? handleUpdateAssignment : handleCreateAssignment}
         assignment={editingItem}
         weeks={weeks}
       />
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setDeleteItem(null);
+        }}
+        title="Confirm Delete"
+      >
+        <div className="space-y-4">
+          <p className="text-dark-300">
+            Are you sure you want to delete this {deleteItem?.type}? This action cannot be undone.
+          </p>
+          {deleteItem?.item && (
+            <div className="bg-dark-700 p-4 rounded-lg">
+              <p className="text-white font-medium">{deleteItem.item.title}</p>
+              {deleteItem.item.description && (
+                <p className="text-dark-300 text-sm mt-1">{deleteItem.item.description}</p>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button 
+              variant="ghost" 
+              onClick={() => {
+                setShowDeleteModal(false);
+                setDeleteItem(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="danger" 
+              onClick={handleConfirmDelete}
+            >
+              Delete {deleteItem?.type}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
@@ -722,7 +1008,8 @@ const LectureModal: React.FC<{
     description: '',
     videoUrl: '',
     duration: 0,
-    order: 1
+    order: 1,
+    isPublished: false
   });
 
   useEffect(() => {
@@ -733,7 +1020,8 @@ const LectureModal: React.FC<{
         description: lecture.description || '',
         videoUrl: lecture.videoUrl || '',
         duration: lecture.duration || 0,
-        order: lecture.order || 1
+        order: lecture.order || 1,
+        isPublished: lecture.isPublished || false
       });
     } else {
       setFormData({
@@ -742,7 +1030,8 @@ const LectureModal: React.FC<{
         description: '',
         videoUrl: '',
         duration: 0,
-        order: 1
+        order: 1,
+        isPublished: false
       });
     }
   }, [lecture, weeks, isOpen]);
@@ -750,7 +1039,7 @@ const LectureModal: React.FC<{
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit(formData);
-    setFormData({ weekId: '', title: '', description: '', videoUrl: '', duration: 0, order: 1 });
+    setFormData({ weekId: '', title: '', description: '', videoUrl: '', duration: 0, order: 1, isPublished: false });
   };
 
   return (
@@ -832,6 +1121,19 @@ const LectureModal: React.FC<{
             />
           </div>
         </div>
+
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="isPublished"
+            checked={formData.isPublished}
+            onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
+            className="w-4 h-4 text-primary-600 bg-dark-700 border-dark-600 rounded focus:ring-primary-500"
+          />
+          <label htmlFor="isPublished" className="ml-2 text-sm text-dark-300">
+            Publish immediately
+          </label>
+        </div>
         
         <div className="flex justify-end space-x-3 pt-4">
           <Button type="button" variant="ghost" onClick={onClose}>
@@ -862,7 +1164,8 @@ const AssignmentModal: React.FC<{
     totalPoints: 100,
     dueDate: '',
     timeLimit: 0,
-    attempts: 1
+    attempts: 1,
+    isPublished: false
   });
 
   useEffect(() => {
@@ -875,7 +1178,8 @@ const AssignmentModal: React.FC<{
         totalPoints: assignment.totalPoints || 100,
         dueDate: assignment.dueDate?.split('T')[0] || '',
         timeLimit: assignment.timeLimit || 0,
-        attempts: assignment.attempts || 1
+        attempts: assignment.attempts || 1,
+        isPublished: assignment.isPublished || false
       });
     } else {
       setFormData({
@@ -886,7 +1190,8 @@ const AssignmentModal: React.FC<{
         totalPoints: 100,
         dueDate: '',
         timeLimit: 0,
-        attempts: 1
+        attempts: 1,
+        isPublished: false
       });
     }
   }, [assignment, weeks, isOpen]);
@@ -897,7 +1202,7 @@ const AssignmentModal: React.FC<{
       ...formData,
       dueDate: new Date(formData.dueDate).toISOString()
     });
-    setFormData({ weekId: '', title: '', description: '', type: 'homework', totalPoints: 100, dueDate: '', timeLimit: 0, attempts: 1 });
+    setFormData({ weekId: '', title: '', description: '', type: 'homework', totalPoints: 100, dueDate: '', timeLimit: 0, attempts: 1, isPublished: false });
   };
 
   return (
@@ -1006,6 +1311,19 @@ const AssignmentModal: React.FC<{
               required
             />
           </div>
+        </div>
+
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="assignmentPublished"
+            checked={formData.isPublished}
+            onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
+            className="w-4 h-4 text-primary-600 bg-dark-700 border-dark-600 rounded focus:ring-primary-500"
+          />
+          <label htmlFor="assignmentPublished" className="ml-2 text-sm text-dark-300">
+            Publish immediately
+          </label>
         </div>
         
         <div className="flex justify-end space-x-3 pt-4">
