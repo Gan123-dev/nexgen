@@ -5,7 +5,9 @@ import { AuthProvider, useAuth } from './hooks/useAuth';
 import AuthForm from './components/Shared/AuthForm';
 import Navigation from './components/Shared/Navigation';
 import AdminDashboard from './components/Admin/Dashboard';
+import ContentManager from './components/Admin/ContentManager';
 import StudentDashboard from './components/Student/Dashboard';
+import CoursesView from './components/Student/CoursesView';
 
 const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
@@ -29,7 +31,7 @@ const AppContent: React.FC = () => {
         case 'dashboard':
           return <AdminDashboard />;
         case 'content':
-          return <div className="text-white">Content Manager (Coming Soon)</div>;
+          return <ContentManager />;
         case 'analytics':
           return <div className="text-white">Analytics (Coming Soon)</div>;
         case 'students':
@@ -44,7 +46,7 @@ const AppContent: React.FC = () => {
         case 'dashboard':
           return <StudentDashboard />;
         case 'courses':
-          return <div className="text-white">My Courses (Coming Soon)</div>;
+          return <CoursesView />;
         case 'schedule':
           return <div className="text-white">Schedule (Coming Soon)</div>;
         case 'progress':
