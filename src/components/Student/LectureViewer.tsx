@@ -7,7 +7,8 @@ import {
   CheckCircle,
   Lock,
   BookOpen,
-  ArrowLeft
+  ArrowLeft,
+  Video
 } from 'lucide-react';
 import Button from '../UI/Button';
 import Card from '../UI/Card';
@@ -116,6 +117,50 @@ const LectureViewer: React.FC<LectureViewerProps> = ({
           <BookOpen className="h-16 w-16 text-dark-400 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-white mb-2">No Video Content</h2>
           <p className="text-dark-300">Video content for this lecture is not available yet.</p>
+          
+          {/* Show quiz if available even without video */}
+          {quiz && quiz.questions.length > 0 && (
+            <div className="mt-6">
+              <p className="text-dark-300 mb-4">However, there is a quiz available for this lecture:</p>
+              <Card className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white flex items-center">
+                    <Award className="h-5 w-5 mr-2 text-secondary-400" />
+                    {quiz.title}
+                  </h3>
+                </div>
+
+                {quiz.description && (
+                  <p className="text-dark-300 mb-4">{quiz.description}</p>
+                )}
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-dark-700 p-3 rounded-lg text-center">
+                    <div className="text-lg font-bold text-white">{quiz.questions.length}</div>
+                    <div className="text-xs text-dark-400">Questions</div>
+                  </div>
+                  <div className="bg-dark-700 p-3 rounded-lg text-center">
+                    <div className="text-lg font-bold text-white">{quiz.passingScore || 70}%</div>
+                    <div className="text-xs text-dark-400">Passing Score</div>
+                  </div>
+                  <div className="bg-dark-700 p-3 rounded-lg text-center">
+                    <div className="text-lg font-bold text-white">{quiz.maxAttempts || 3}</div>
+                    <div className="text-xs text-dark-400">Max Attempts</div>
+                  </div>
+                  <div className="bg-dark-700 p-3 rounded-lg text-center">
+                    <div className="text-lg font-bold text-white">
+                      {quiz.timeLimit ? `${quiz.timeLimit}m` : '∞'}
+                    </div>
+                    <div className="text-xs text-dark-400">Time Limit</div>
+                  </div>
+                </div>
+
+                <Button className="w-full">
+                  Start Quiz
+                </Button>
+              </Card>
+            </div>
+          )}
         </Card>
       </div>
     );
@@ -138,10 +183,10 @@ const LectureViewer: React.FC<LectureViewerProps> = ({
                   {lecture.duration} minutes
                 </div>
               )}
-              {quiz && (
+              {quiz && quiz.questions.length > 0 && (
                 <div className="flex items-center">
                   <Award className="h-4 w-4 mr-1" />
-                  Quiz included
+                  Quiz included ({quiz.questions.length} questions)
                 </div>
               )}
             </div>

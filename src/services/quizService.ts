@@ -1,8 +1,131 @@
 import { Quiz, QuizAttempt, VideoProgress, QuizResult, QuestionFeedback } from '../types/quiz';
 
-// Mock storage for development
+// Mock storage for development with sample quiz data
 const mockStorage = {
-  quizzes: new Map<string, Quiz>(),
+  quizzes: new Map<string, Quiz>([
+    // Sample quiz for the first lecture
+    ['lecture-1-1-1', {
+      id: 'quiz-1-1-1',
+      title: 'Limits Fundamentals Quiz',
+      description: 'Test your understanding of basic limit concepts',
+      instructions: 'Answer all questions to the best of your ability. You have 3 attempts to pass.',
+      questions: [
+        {
+          id: 'q1',
+          text: 'What is the limit of f(x) = x² as x approaches 2?',
+          type: 'multiple-choice',
+          options: ['2', '4', '8', 'undefined'],
+          correctAnswer: 1,
+          points: 10,
+          explanation: 'When x approaches 2, x² approaches 2² = 4'
+        },
+        {
+          id: 'q2',
+          text: 'Which of the following statements about limits is true?',
+          type: 'multiple-choice',
+          options: [
+            'The limit always equals the function value',
+            'Limits can exist even when the function is undefined at that point',
+            'Limits are always finite',
+            'Limits only exist for continuous functions'
+          ],
+          correctAnswer: 1,
+          points: 15,
+          explanation: 'Limits can exist even when the function is undefined at that point, which is a key concept in calculus.'
+        },
+        {
+          id: 'q3',
+          text: 'Explain in your own words what a limit represents in calculus.',
+          type: 'short-answer',
+          correctAnswer: 'approaching value',
+          points: 25,
+          explanation: 'A limit represents the value that a function approaches as the input approaches a certain value.'
+        }
+      ],
+      timeLimit: 15,
+      passingScore: 70,
+      maxAttempts: 3,
+      shuffleQuestions: false,
+      showFeedback: true
+    }],
+    // Sample quiz for the second lecture
+    ['lecture-1-1-2', {
+      id: 'quiz-1-1-2',
+      title: 'Limit Laws Quiz',
+      description: 'Apply limit laws to solve problems',
+      instructions: 'Use the limit laws you learned to solve these problems.',
+      questions: [
+        {
+          id: 'q1',
+          text: 'If lim(x→2) f(x) = 5 and lim(x→2) g(x) = 3, what is lim(x→2) [f(x) + g(x)]?',
+          type: 'multiple-choice',
+          options: ['5', '3', '8', '15'],
+          correctAnswer: 2,
+          points: 20,
+          explanation: 'By the sum rule for limits: lim[f(x) + g(x)] = lim f(x) + lim g(x) = 5 + 3 = 8'
+        },
+        {
+          id: 'q2',
+          text: 'What is lim(x→0) (sin x)/x?',
+          type: 'multiple-choice',
+          options: ['0', '1', '∞', 'undefined'],
+          correctAnswer: 1,
+          points: 25,
+          explanation: 'This is a famous limit that equals 1, often used in trigonometric limit problems.'
+        }
+      ],
+      timeLimit: 10,
+      passingScore: 75,
+      maxAttempts: 3,
+      shuffleQuestions: false,
+      showFeedback: true
+    }],
+    // Sample quiz for derivatives lecture
+    ['lecture-1-2-1', {
+      id: 'quiz-1-2-1',
+      title: 'Introduction to Derivatives Quiz',
+      description: 'Test your understanding of derivative concepts',
+      instructions: 'Answer questions about derivatives and their geometric interpretation.',
+      questions: [
+        {
+          id: 'q1',
+          text: 'What does the derivative of a function represent geometrically?',
+          type: 'multiple-choice',
+          options: [
+            'The area under the curve',
+            'The slope of the tangent line',
+            'The y-intercept',
+            'The maximum value'
+          ],
+          correctAnswer: 1,
+          points: 15,
+          explanation: 'The derivative represents the slope of the tangent line to the curve at any given point.'
+        },
+        {
+          id: 'q2',
+          text: 'What is the derivative of f(x) = x³?',
+          type: 'short-answer',
+          correctAnswer: '3x²',
+          points: 20,
+          explanation: 'Using the power rule: d/dx(xⁿ) = nxⁿ⁻¹, so d/dx(x³) = 3x²'
+        },
+        {
+          id: 'q3',
+          text: 'If f(x) = 5x² + 3x - 2, what is f\'(x)?',
+          type: 'multiple-choice',
+          options: ['10x + 3', '5x + 3', '10x² + 3x', '5x² + 3'],
+          correctAnswer: 0,
+          points: 25,
+          explanation: 'Using the power rule and sum rule: f\'(x) = 10x + 3'
+        }
+      ],
+      timeLimit: 12,
+      passingScore: 70,
+      maxAttempts: 3,
+      shuffleQuestions: false,
+      showFeedback: true
+    }]
+  ]),
   attempts: new Map<string, QuizAttempt[]>(),
   videoProgress: new Map<string, VideoProgress[]>()
 };
