@@ -2,32 +2,31 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, 
-  BookOpen, 
-  Video, 
-  FileText, 
   Edit3, 
   Trash2, 
-  Save,
-  X,
-  Calendar,
+  Calendar, 
+  BookOpen, 
+  Video, 
+  FileText,
+  Eye,
+  EyeOff,
   Clock,
   Users,
   Award,
-  Play,
-  Upload
+  ChevronDown,
+  ChevronRight,
+  Play
 } from 'lucide-react';
-import Card from '../UI/Card';
 import Button from '../UI/Button';
+import Card from '../UI/Card';
 import Modal from '../UI/Modal';
+import LectureEditor from './LectureEditor';
 import { Course, Week, Lecture, Assignment } from '../../types';
 import { 
   getCourses, 
-  createCourse, 
-  updateCourse, 
-  deleteCourse,
-  createWeek,
-  getWeeks,
-  updateWeek,
+  getWeeks, 
+  createWeek, 
+  updateWeek, 
   deleteWeek,
   createLecture,
   updateLecture,
@@ -42,15 +41,19 @@ const ContentManager: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [weeks, setWeeks] = useState<Week[]>([]);
+  const [expandedWeeks, setExpandedWeeks] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [showCourseModal, setShowCourseModal] = useState(false);
+  
+  // Modals
   const [showWeekModal, setShowWeekModal] = useState(false);
   const [showLectureModal, setShowLectureModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
-  const [deleteItem, setDeleteItem] = useState<{ type: string; item: any } | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'weeks' | 'lectures' | 'assignments'>('overview');
+  
+  // Editing states
+  const [editingWeek, setEditingWeek] = useState<Week | null>(null);
+  const [editingLecture, setEditingLecture] = useState<Lecture | null>(null);
+  const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
+  const [selectedWeekId, setSelectedWeekId] = useState<string>('');
 
   useEffect(() => {
     fetchCourses();
@@ -85,243 +88,146 @@ const ContentManager: React.FC = () => {
     }
   };
 
-  // Course handlers
-  const handleCreateCourse = async (courseData: any) => {
-    try {
-      const courseId = await createCourse({
-        ...courseData,
-        weeks: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: 'current-user-id'
-      });
-      toast.success('Course created successfully');
-      fetchCourses();
-      setShowCourseModal(false);
-      setEditingItem(null);
-    } catch (error) {
-      toast.error('Failed to create course');
+  const toggleWeekExpansion = (weekId: string) => {
+    const newExpanded = new Set(expandedWeeks);
+    if (newExpanded.has(weekId)) {
+      newExpanded.delete(weekId);
+    } else {
+      newExpanded.add(weekId);
     }
+    setExpandedWeeks(newExpanded);
   };
 
-  const handleUpdateCourse = async (courseData: any) => {
-    if (!editingItem) return;
-    
-    try {
-      await updateCourse(editingItem.id, {
-        ...courseData,
-        updatedAt: new Date().toISOString()
-      });
-      toast.success('Course updated successfully');
-      fetchCourses();
-      setShowCourseModal(false);
-      setEditingItem(null);
-    } catch (error) {
-      toast.error('Failed to update course');
-    }
+  // Week Management
+  const handleCreateWeek = () => {
+    setEditingWeek(null);
+    setShowWeekModal(true);
   };
 
-  const handleDeleteCourse = async (courseId: string) => {
-    try {
-      await deleteCourse(courseId);
-      toast.success('Course deleted successfully');
-      fetchCourses();
-      if (selectedCourse?.id === courseId) {
-        setSelectedCourse(null);
-      }
-      setShowDeleteModal(false);
-      setDeleteItem(null);
-    } catch (error) {
-      toast.error('Failed to delete course');
-    }
+  const handleEditWeek = (week: Week) => {
+    setEditingWeek(week);
+    setShowWeekModal(true);
   };
 
-  // Week handlers
-  const handleCreateWeek = async (weekData: any) => {
+  const handleSaveWeek = async (weekData: Partial<Week>) => {
     if (!selectedCourse) return;
-    
-    try {
-      await createWeek(selectedCourse.id, {
-        ...weekData,
-        lectures: [],
-        assignments: [],
-        isActive: false
-      });
-      toast.success('Week created successfully');
-      fetchWeeks(selectedCourse.id);
-      setShowWeekModal(false);
-      setEditingItem(null);
-    } catch (error) {
-      toast.error('Failed to create week');
-    }
-  };
 
-  const handleUpdateWeek = async (weekData: any) => {
-    if (!selectedCourse || !editingItem) return;
-    
     try {
-      await updateWeek(selectedCourse.id, editingItem.id, weekData);
-      toast.success('Week updated successfully');
-      fetchWeeks(selectedCourse.id);
+      if (editingWeek) {
+        await updateWeek(selectedCourse.id, editingWeek.id, weekData);
+        toast.success('Week updated successfully!');
+      } else {
+        await createWeek(selectedCourse.id, weekData as Omit<Week, 'id' | 'courseId'>);
+        toast.success('Week created successfully!');
+      }
+      
+      await fetchWeeks(selectedCourse.id);
       setShowWeekModal(false);
-      setEditingItem(null);
+      setEditingWeek(null);
     } catch (error) {
-      toast.error('Failed to update week');
+      toast.error('Failed to save week');
     }
   };
 
   const handleDeleteWeek = async (weekId: string) => {
-    if (!selectedCourse) return;
-    
+    if (!selectedCourse || !confirm('Are you sure you want to delete this week?')) return;
+
     try {
       await deleteWeek(selectedCourse.id, weekId);
-      toast.success('Week deleted successfully');
-      fetchWeeks(selectedCourse.id);
-      setShowDeleteModal(false);
-      setDeleteItem(null);
+      await fetchWeeks(selectedCourse.id);
+      toast.success('Week deleted successfully!');
     } catch (error) {
       toast.error('Failed to delete week');
     }
   };
 
-  // Lecture handlers
-  const handleCreateLecture = async (lectureData: any) => {
-    if (!selectedCourse || !lectureData.weekId) return;
-    
-    try {
-      await createLecture(selectedCourse.id, lectureData.weekId, {
-        ...lectureData,
-        resources: [],
-        activities: [],
-        isPublished: false
-      });
-      toast.success('Lecture created successfully');
-      fetchWeeks(selectedCourse.id);
-      setShowLectureModal(false);
-      setEditingItem(null);
-    } catch (error) {
-      toast.error('Failed to create lecture');
-    }
+  // Lecture Management
+  const handleCreateLecture = (weekId: string) => {
+    setSelectedWeekId(weekId);
+    setEditingLecture(null);
+    setShowLectureModal(true);
   };
 
-  const handleUpdateLecture = async (lectureData: any) => {
-    if (!selectedCourse || !editingItem) return;
-    
+  const handleEditLecture = (lecture: Lecture) => {
+    setEditingLecture(lecture);
+    setSelectedWeekId(lecture.weekId);
+    setShowLectureModal(true);
+  };
+
+  const handleSaveLecture = async (lectureData: Lecture) => {
+    if (!selectedCourse) return;
+
     try {
-      await updateLecture(selectedCourse.id, editingItem.weekId, editingItem.id, lectureData);
-      toast.success('Lecture updated successfully');
-      fetchWeeks(selectedCourse.id);
+      if (editingLecture) {
+        await updateLecture(selectedCourse.id, selectedWeekId, editingLecture.id, lectureData);
+        toast.success('Lecture updated successfully!');
+      } else {
+        await createLecture(selectedCourse.id, selectedWeekId, lectureData);
+        toast.success('Lecture created successfully!');
+      }
+      
+      await fetchWeeks(selectedCourse.id);
       setShowLectureModal(false);
-      setEditingItem(null);
+      setEditingLecture(null);
     } catch (error) {
-      toast.error('Failed to update lecture');
+      toast.error('Failed to save lecture');
     }
   };
 
   const handleDeleteLecture = async (weekId: string, lectureId: string) => {
-    if (!selectedCourse) return;
-    
+    if (!selectedCourse || !confirm('Are you sure you want to delete this lecture?')) return;
+
     try {
       await deleteLecture(selectedCourse.id, weekId, lectureId);
-      toast.success('Lecture deleted successfully');
-      fetchWeeks(selectedCourse.id);
-      setShowDeleteModal(false);
-      setDeleteItem(null);
+      await fetchWeeks(selectedCourse.id);
+      toast.success('Lecture deleted successfully!');
     } catch (error) {
       toast.error('Failed to delete lecture');
     }
   };
 
-  // Assignment handlers
-  const handleCreateAssignment = async (assignmentData: any) => {
-    if (!selectedCourse || !assignmentData.weekId) return;
-    
-    try {
-      await createAssignment(selectedCourse.id, assignmentData.weekId, {
-        ...assignmentData,
-        questions: assignmentData.questions || [],
-        isPublished: false
-      });
-      toast.success('Assignment created successfully');
-      fetchWeeks(selectedCourse.id);
-      setShowAssignmentModal(false);
-      setEditingItem(null);
-    } catch (error) {
-      toast.error('Failed to create assignment');
-    }
+  // Assignment Management
+  const handleCreateAssignment = (weekId: string) => {
+    setSelectedWeekId(weekId);
+    setEditingAssignment(null);
+    setShowAssignmentModal(true);
   };
 
-  const handleUpdateAssignment = async (assignmentData: any) => {
-    if (!selectedCourse || !editingItem) return;
-    
+  const handleEditAssignment = (assignment: Assignment) => {
+    setEditingAssignment(assignment);
+    setSelectedWeekId(assignment.weekId);
+    setShowAssignmentModal(true);
+  };
+
+  const handleSaveAssignment = async (assignmentData: Partial<Assignment>) => {
+    if (!selectedCourse) return;
+
     try {
-      await updateAssignment(selectedCourse.id, editingItem.weekId, editingItem.id, assignmentData);
-      toast.success('Assignment updated successfully');
-      fetchWeeks(selectedCourse.id);
+      if (editingAssignment) {
+        await updateAssignment(selectedCourse.id, selectedWeekId, editingAssignment.id, assignmentData);
+        toast.success('Assignment updated successfully!');
+      } else {
+        await createAssignment(selectedCourse.id, selectedWeekId, assignmentData as Omit<Assignment, 'id' | 'weekId'>);
+        toast.success('Assignment created successfully!');
+      }
+      
+      await fetchWeeks(selectedCourse.id);
       setShowAssignmentModal(false);
-      setEditingItem(null);
+      setEditingAssignment(null);
     } catch (error) {
-      toast.error('Failed to update assignment');
+      toast.error('Failed to save assignment');
     }
   };
 
   const handleDeleteAssignment = async (weekId: string, assignmentId: string) => {
-    if (!selectedCourse) return;
-    
+    if (!selectedCourse || !confirm('Are you sure you want to delete this assignment?')) return;
+
     try {
       await deleteAssignment(selectedCourse.id, weekId, assignmentId);
-      toast.success('Assignment deleted successfully');
-      fetchWeeks(selectedCourse.id);
-      setShowDeleteModal(false);
-      setDeleteItem(null);
+      await fetchWeeks(selectedCourse.id);
+      toast.success('Assignment deleted successfully!');
     } catch (error) {
       toast.error('Failed to delete assignment');
-    }
-  };
-
-  // Edit handlers
-  const handleEditCourse = (course: Course) => {
-    setEditingItem(course);
-    setShowCourseModal(true);
-  };
-
-  const handleEditWeek = (week: Week) => {
-    setEditingItem(week);
-    setShowWeekModal(true);
-  };
-
-  const handleEditLecture = (lecture: Lecture) => {
-    setEditingItem(lecture);
-    setShowLectureModal(true);
-  };
-
-  const handleEditAssignment = (assignment: Assignment) => {
-    setEditingItem(assignment);
-    setShowAssignmentModal(true);
-  };
-
-  // Delete confirmation handlers
-  const confirmDelete = (type: string, item: any) => {
-    setDeleteItem({ type, item });
-    setShowDeleteModal(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteItem) return;
-
-    switch (deleteItem.type) {
-      case 'course':
-        await handleDeleteCourse(deleteItem.item.id);
-        break;
-      case 'week':
-        await handleDeleteWeek(deleteItem.item.id);
-        break;
-      case 'lecture':
-        await handleDeleteLecture(deleteItem.item.weekId, deleteItem.item.id);
-        break;
-      case 'assignment':
-        await handleDeleteAssignment(deleteItem.item.weekId, deleteItem.item.id);
-        break;
     }
   };
 
@@ -338,10 +244,10 @@ const ContentManager: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Content Manager</h1>
-          <p className="text-dark-300">Create and manage your course content</p>
+          <p className="text-dark-300">Manage course content, lectures, and assignments</p>
         </div>
-        <Button onClick={() => setShowCourseModal(true)} icon={<Plus className="h-4 w-4" />}>
-          New Course
+        <Button onClick={handleCreateWeek} icon={<Plus className="h-4 w-4" />}>
+          Add Week
         </Button>
       </div>
 
@@ -357,631 +263,437 @@ const ContentManager: React.FC = () => {
               key={course.id}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className={`p-4 rounded-lg border-2 cursor-pointer transition-all relative ${
+              onClick={() => setSelectedCourse(course)}
+              className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
                 selectedCourse?.id === course.id
                   ? 'border-primary-600 bg-primary-600/10'
                   : 'border-dark-600 hover:border-dark-500'
               }`}
             >
-              <div onClick={() => setSelectedCourse(course)}>
-                <h3 className="text-white font-semibold mb-2">{course.title}</h3>
-                <p className="text-dark-300 text-sm mb-3">{course.description}</p>
-                <div className="flex items-center justify-between text-xs text-dark-400">
-                  <span>{course.weeks?.length || 0} weeks</span>
-                  <span>Updated {new Date(course.updatedAt).toLocaleDateString()}</span>
-                </div>
-              </div>
-              <div className="absolute top-2 right-2 flex space-x-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEditCourse(course);
-                  }}
-                  icon={<Edit3 className="h-3 w-3" />}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    confirmDelete('course', course);
-                  }}
-                  icon={<Trash2 className="h-3 w-3" />}
-                />
-              </div>
+              <h3 className="text-white font-semibold mb-2">{course.title}</h3>
+              <p className="text-dark-300 text-sm">{course.description}</p>
             </motion.div>
           ))}
         </div>
       </Card>
 
+      {/* Course Content */}
       {selectedCourse && (
-        <>
-          {/* Course Tabs */}
-          <Card className="p-6">
-            <div className="flex space-x-1 mb-6">
-              {[
-                { id: 'overview', label: 'Overview', icon: BookOpen },
-                { id: 'weeks', label: 'Weeks', icon: Calendar },
-                { id: 'lectures', label: 'Lectures', icon: Video },
-                { id: 'assignments', label: 'Assignments', icon: FileText }
-              ].map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      activeTab === tab.id
-                        ? 'bg-primary-600 text-white'
-                        : 'text-dark-300 hover:text-white hover:bg-dark-700'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4 mr-2" />
-                    {tab.label}
-                  </button>
-                );
-              })}
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-white">{selectedCourse.title} - Content</h2>
+            <div className="flex items-center space-x-2 text-sm text-dark-400">
+              <span>{weeks.length} weeks</span>
+              <span>•</span>
+              <span>{weeks.reduce((acc, week) => acc + (week.lectures?.length || 0), 0)} lectures</span>
+              <span>•</span>
+              <span>{weeks.reduce((acc, week) => acc + (week.assignments?.length || 0), 0)} assignments</span>
             </div>
+          </div>
 
-            {/* Tab Content */}
-            <AnimatePresence mode="wait">
-              {activeTab === 'overview' && (
+          {weeks.length === 0 ? (
+            <div className="text-center py-12">
+              <Calendar className="h-16 w-16 text-dark-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-white mb-2">No weeks created yet</h3>
+              <p className="text-dark-300 mb-6">Start by creating your first week of content</p>
+              <Button onClick={handleCreateWeek} icon={<Plus className="h-4 w-4" />}>
+                Create First Week
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {weeks.map((week) => (
                 <motion.div
-                  key="overview"
+                  key={week.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-6"
+                  className="bg-dark-700 rounded-lg overflow-hidden"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-dark-700 p-6 rounded-lg">
-                      <div className="flex items-center justify-between mb-4">
-                        <Calendar className="h-8 w-8 text-primary-400" />
-                        <span className="text-2xl font-bold text-white">{weeks.length}</span>
+                  {/* Week Header */}
+                  <div className="p-6 border-b border-dark-600">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <button
+                          onClick={() => toggleWeekExpansion(week.id)}
+                          className="text-dark-400 hover:text-white transition-colors"
+                        >
+                          {expandedWeeks.has(week.id) ? (
+                            <ChevronDown className="h-5 w-5" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5" />
+                          )}
+                        </button>
+                        <div className="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold">{week.weekNumber}</span>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-white">{week.title}</h3>
+                          <p className="text-dark-300 text-sm">{week.description}</p>
+                        </div>
                       </div>
-                      <h3 className="text-white font-semibold">Total Weeks</h3>
-                      <p className="text-dark-300 text-sm">Course duration</p>
+                      
+                      <div className="flex items-center space-x-2">
+                        {week.isActive ? (
+                          <span className="px-2 py-1 bg-accent-600 text-white text-xs rounded-full">Active</span>
+                        ) : (
+                          <span className="px-2 py-1 bg-dark-600 text-dark-300 text-xs rounded-full">Inactive</span>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEditWeek(week)}
+                          icon={<Edit3 className="h-4 w-4" />}
+                        />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteWeek(week.id)}
+                          icon={<Trash2 className="h-4 w-4" />}
+                        />
+                      </div>
                     </div>
-                    <div className="bg-dark-700 p-6 rounded-lg">
-                      <div className="flex items-center justify-between mb-4">
-                        <Video className="h-8 w-8 text-secondary-400" />
-                        <span className="text-2xl font-bold text-white">
-                          {weeks.reduce((acc, week) => acc + (week.lectures?.length || 0), 0)}
-                        </span>
+
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                      <div className="flex items-center text-dark-300">
+                        <Calendar className="h-4 w-4 mr-2" />
+                        {new Date(week.startDate).toLocaleDateString()} - {new Date(week.endDate).toLocaleDateString()}
                       </div>
-                      <h3 className="text-white font-semibold">Total Lectures</h3>
-                      <p className="text-dark-300 text-sm">Video content</p>
-                    </div>
-                    <div className="bg-dark-700 p-6 rounded-lg">
-                      <div className="flex items-center justify-between mb-4">
-                        <FileText className="h-8 w-8 text-accent-400" />
-                        <span className="text-2xl font-bold text-white">
-                          {weeks.reduce((acc, week) => acc + (week.assignments?.length || 0), 0)}
-                        </span>
+                      <div className="flex items-center text-dark-300">
+                        <Video className="h-4 w-4 mr-2" />
+                        {week.lectures?.length || 0} lectures
                       </div>
-                      <h3 className="text-white font-semibold">Total Assignments</h3>
-                      <p className="text-dark-300 text-sm">Graded work</p>
+                      <div className="flex items-center text-dark-300">
+                        <FileText className="h-4 w-4 mr-2" />
+                        {week.assignments?.length || 0} assignments
+                      </div>
+                      <div className="flex items-center text-dark-300">
+                        <Users className="h-4 w-4 mr-2" />
+                        {week.isActive ? 'Available to students' : 'Hidden from students'}
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="bg-dark-700 p-6 rounded-lg">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-white font-semibold">Course Details</h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditCourse(selectedCourse)}
-                        icon={<Edit3 className="h-4 w-4" />}
+
+                  {/* Week Content */}
+                  <AnimatePresence>
+                    {expandedWeeks.has(week.id) && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="overflow-hidden"
                       >
-                        Edit Course
-                      </Button>
-                    </div>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-dark-300 text-sm">Title</label>
-                        <p className="text-white">{selectedCourse.title}</p>
-                      </div>
-                      <div>
-                        <label className="text-dark-300 text-sm">Description</label>
-                        <p className="text-white">{selectedCourse.description}</p>
-                      </div>
-                      <div className="flex space-x-4">
-                        <div>
-                          <label className="text-dark-300 text-sm">Created</label>
-                          <p className="text-white">{new Date(selectedCourse.createdAt).toLocaleDateString()}</p>
-                        </div>
-                        <div>
-                          <label className="text-dark-300 text-sm">Last Updated</label>
-                          <p className="text-white">{new Date(selectedCourse.updatedAt).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
+                        <div className="p-6 space-y-6">
+                          {/* Lectures Section */}
+                          <div>
+                            <div className="flex items-center justify-between mb-4">
+                              <h4 className="text-lg font-semibold text-white flex items-center">
+                                <Video className="h-5 w-5 mr-2" />
+                                Lectures ({week.lectures?.length || 0})
+                              </h4>
+                              <Button
+                                size="sm"
+                                onClick={() => handleCreateLecture(week.id)}
+                                icon={<Plus className="h-4 w-4" />}
+                              >
+                                Add Lecture
+                              </Button>
+                            </div>
 
-              {activeTab === 'weeks' && (
-                <motion.div
-                  key="weeks"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-4"
-                >
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-white">Course Weeks</h3>
-                    <Button onClick={() => setShowWeekModal(true)} size="sm" icon={<Plus className="h-4 w-4" />}>
-                      Add Week
-                    </Button>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {weeks.map((week, index) => (
-                      <div key={week.id} className="bg-dark-700 p-6 rounded-lg">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center">
-                              <span className="text-white text-sm font-bold">{week.weekNumber}</span>
-                            </div>
-                            <div>
-                              <h4 className="text-white font-semibold">{week.title}</h4>
-                              <p className="text-dark-300 text-sm">{week.description}</p>
-                            </div>
+                            {week.lectures && week.lectures.length > 0 ? (
+                              <div className="space-y-3">
+                                {week.lectures.map((lecture) => (
+                                  <div key={lecture.id} className="bg-dark-800 p-4 rounded-lg">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center space-x-3">
+                                        <div className="w-10 h-10 bg-secondary-600 rounded-lg flex items-center justify-center">
+                                          {lecture.videoUrl ? (
+                                            <Play className="h-5 w-5 text-white" />
+                                          ) : (
+                                            <Video className="h-5 w-5 text-white" />
+                                          )}
+                                        </div>
+                                        <div>
+                                          <h5 className="text-white font-medium">{lecture.title}</h5>
+                                          <div className="flex items-center space-x-4 text-sm text-dark-400">
+                                            <span>Order: {lecture.order}</span>
+                                            {lecture.duration && (
+                                              <span className="flex items-center">
+                                                <Clock className="h-3 w-3 mr-1" />
+                                                {lecture.duration} min
+                                              </span>
+                                            )}
+                                            <span className="flex items-center">
+                                              {lecture.isPublished ? (
+                                                <>
+                                                  <Eye className="h-3 w-3 mr-1 text-accent-400" />
+                                                  <span className="text-accent-400">Published</span>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <EyeOff className="h-3 w-3 mr-1 text-orange-400" />
+                                                  <span className="text-orange-400">Draft</span>
+                                                </>
+                                              )}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="flex items-center space-x-2">
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => handleEditLecture(lecture)}
+                                          icon={<Edit3 className="h-4 w-4" />}
+                                        />
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => handleDeleteLecture(week.id, lecture.id)}
+                                          icon={<Trash2 className="h-4 w-4" />}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-8 bg-dark-800 rounded-lg">
+                                <Video className="h-12 w-12 text-dark-400 mx-auto mb-3" />
+                                <p className="text-dark-300">No lectures created yet</p>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => handleEditWeek(week)}
-                              icon={<Edit3 className="h-4 w-4" />} 
-                            />
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => confirmDelete('week', week)}
-                              icon={<Trash2 className="h-4 w-4" />} 
-                            />
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                          <div className="flex items-center text-dark-300">
-                            <Video className="h-4 w-4 mr-2" />
-                            {week.lectures?.length || 0} lectures
-                          </div>
-                          <div className="flex items-center text-dark-300">
-                            <FileText className="h-4 w-4 mr-2" />
-                            {week.assignments?.length || 0} assignments
-                          </div>
-                          <div className="flex items-center text-dark-300">
-                            <Calendar className="h-4 w-4 mr-2" />
-                            {new Date(week.startDate).toLocaleDateString()} - {new Date(week.endDate).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
 
-              {activeTab === 'lectures' && (
-                <motion.div
-                  key="lectures"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-4"
-                >
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-white">All Lectures</h3>
-                    <Button onClick={() => setShowLectureModal(true)} size="sm" icon={<Plus className="h-4 w-4" />}>
-                      Add Lecture
-                    </Button>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {weeks.map((week) => 
-                      week.lectures?.map((lecture) => (
-                        <div key={lecture.id} className="bg-dark-700 p-6 rounded-lg">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-12 h-12 bg-secondary-600 rounded-lg flex items-center justify-center">
-                                <Video className="h-6 w-6 text-white" />
-                              </div>
-                              <div>
-                                <h4 className="text-white font-semibold">{lecture.title}</h4>
-                                <p className="text-dark-300 text-sm">Week {week.weekNumber} • {lecture.duration || 0} minutes</p>
-                              </div>
+                          {/* Assignments Section */}
+                          <div>
+                            <div className="flex items-center justify-between mb-4">
+                              <h4 className="text-lg font-semibold text-white flex items-center">
+                                <FileText className="h-5 w-5 mr-2" />
+                                Assignments ({week.assignments?.length || 0})
+                              </h4>
+                              <Button
+                                size="sm"
+                                onClick={() => handleCreateAssignment(week.id)}
+                                icon={<Plus className="h-4 w-4" />}
+                              >
+                                Add Assignment
+                              </Button>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <span className={`px-2 py-1 rounded-full text-xs ${
-                                lecture.isPublished ? 'bg-accent-600 text-white' : 'bg-orange-600 text-white'
-                              }`}>
-                                {lecture.isPublished ? 'Published' : 'Draft'}
-                              </span>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => handleEditLecture(lecture)}
-                                icon={<Edit3 className="h-4 w-4" />} 
-                              />
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => confirmDelete('lecture', lecture)}
-                                icon={<Trash2 className="h-4 w-4" />} 
-                              />
-                            </div>
-                          </div>
-                          
-                          <p className="text-dark-300 text-sm mb-4">{lecture.description}</p>
-                          
-                          <div className="flex items-center space-x-4 text-sm text-dark-400">
-                            <span>{lecture.resources?.length || 0} resources</span>
-                            <span>{lecture.activities?.length || 0} activities</span>
-                            {lecture.videoUrl && (
-                              <div className="flex items-center">
-                                <Play className="h-4 w-4 mr-1" />
-                                Video available
+
+                            {week.assignments && week.assignments.length > 0 ? (
+                              <div className="space-y-3">
+                                {week.assignments.map((assignment) => (
+                                  <div key={assignment.id} className="bg-dark-800 p-4 rounded-lg">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center space-x-3">
+                                        <div className="w-10 h-10 bg-accent-600 rounded-lg flex items-center justify-center">
+                                          <Award className="h-5 w-5 text-white" />
+                                        </div>
+                                        <div>
+                                          <h5 className="text-white font-medium">{assignment.title}</h5>
+                                          <div className="flex items-center space-x-4 text-sm text-dark-400">
+                                            <span className="capitalize">{assignment.type}</span>
+                                            <span>{assignment.totalPoints} points</span>
+                                            <span>Due: {new Date(assignment.dueDate).toLocaleDateString()}</span>
+                                            <span className="flex items-center">
+                                              {assignment.isPublished ? (
+                                                <>
+                                                  <Eye className="h-3 w-3 mr-1 text-accent-400" />
+                                                  <span className="text-accent-400">Published</span>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <EyeOff className="h-3 w-3 mr-1 text-orange-400" />
+                                                  <span className="text-orange-400">Draft</span>
+                                                </>
+                                              )}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="flex items-center space-x-2">
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => handleEditAssignment(assignment)}
+                                          icon={<Edit3 className="h-4 w-4" />}
+                                        />
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => handleDeleteAssignment(week.id, assignment.id)}
+                                          icon={<Trash2 className="h-4 w-4" />}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-8 bg-dark-800 rounded-lg">
+                                <FileText className="h-12 w-12 text-dark-400 mx-auto mb-3" />
+                                <p className="text-dark-300">No assignments created yet</p>
                               </div>
                             )}
                           </div>
                         </div>
-                      ))
+                      </motion.div>
                     )}
-                  </div>
+                  </AnimatePresence>
                 </motion.div>
-              )}
-
-              {activeTab === 'assignments' && (
-                <motion.div
-                  key="assignments"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-4"
-                >
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-white">All Assignments</h3>
-                    <Button onClick={() => setShowAssignmentModal(true)} size="sm" icon={<Plus className="h-4 w-4" />}>
-                      Add Assignment
-                    </Button>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {weeks.map((week) => 
-                      week.assignments?.map((assignment) => (
-                        <div key={assignment.id} className="bg-dark-700 p-6 rounded-lg">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center space-x-3">
-                              <div className="w-12 h-12 bg-accent-600 rounded-lg flex items-center justify-center">
-                                <FileText className="h-6 w-6 text-white" />
-                              </div>
-                              <div>
-                                <h4 className="text-white font-semibold">{assignment.title}</h4>
-                                <p className="text-dark-300 text-sm">Week {week.weekNumber} • {assignment.type}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <span className={`px-2 py-1 rounded-full text-xs ${
-                                assignment.isPublished ? 'bg-accent-600 text-white' : 'bg-orange-600 text-white'
-                              }`}>
-                                {assignment.isPublished ? 'Published' : 'Draft'}
-                              </span>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => handleEditAssignment(assignment)}
-                                icon={<Edit3 className="h-4 w-4" />} 
-                              />
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => confirmDelete('assignment', assignment)}
-                                icon={<Trash2 className="h-4 w-4" />} 
-                              />
-                            </div>
-                          </div>
-                          
-                          <p className="text-dark-300 text-sm mb-4">{assignment.description}</p>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-dark-400">
-                            <div className="flex items-center">
-                              <Award className="h-4 w-4 mr-1" />
-                              {assignment.totalPoints} points
-                            </div>
-                            <div className="flex items-center">
-                              <Clock className="h-4 w-4 mr-1" />
-                              Due {new Date(assignment.dueDate).toLocaleDateString()}
-                            </div>
-                            <div className="flex items-center">
-                              <FileText className="h-4 w-4 mr-1" />
-                              {assignment.questions?.length || 0} questions
-                            </div>
-                            <div className="flex items-center">
-                              <Users className="h-4 w-4 mr-1" />
-                              {assignment.attempts} attempts
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </Card>
-        </>
+              ))}
+            </div>
+          )}
+        </Card>
       )}
 
-      {/* Modals */}
-      <CourseModal
-        isOpen={showCourseModal}
-        onClose={() => {
-          setShowCourseModal(false);
-          setEditingItem(null);
-        }}
-        onSubmit={editingItem ? handleUpdateCourse : handleCreateCourse}
-        course={editingItem}
-      />
-      
+      {/* Week Modal */}
       <WeekModal
         isOpen={showWeekModal}
         onClose={() => {
           setShowWeekModal(false);
-          setEditingItem(null);
+          setEditingWeek(null);
         }}
-        onSubmit={editingItem ? handleUpdateWeek : handleCreateWeek}
-        week={editingItem}
+        onSave={handleSaveWeek}
+        week={editingWeek}
         weekNumber={weeks.length + 1}
       />
-      
-      <LectureModal
+
+      {/* Lecture Modal */}
+      <LectureEditor
         isOpen={showLectureModal}
-        onClose={() => {
+        onCancel={() => {
           setShowLectureModal(false);
-          setEditingItem(null);
+          setEditingLecture(null);
         }}
-        onSubmit={editingItem ? handleUpdateLecture : handleCreateLecture}
-        lecture={editingItem}
-        weeks={weeks}
+        onSave={handleSaveLecture}
+        lecture={editingLecture || undefined}
       />
-      
+
+      {/* Assignment Modal */}
       <AssignmentModal
         isOpen={showAssignmentModal}
         onClose={() => {
           setShowAssignmentModal(false);
-          setEditingItem(null);
+          setEditingAssignment(null);
         }}
-        onSubmit={editingItem ? handleUpdateAssignment : handleCreateAssignment}
-        assignment={editingItem}
-        weeks={weeks}
+        onSave={handleSaveAssignment}
+        assignment={editingAssignment}
       />
-
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setDeleteItem(null);
-        }}
-        title="Confirm Delete"
-      >
-        <div className="space-y-4">
-          <p className="text-dark-300">
-            Are you sure you want to delete this {deleteItem?.type}? This action cannot be undone.
-          </p>
-          {deleteItem?.item && (
-            <div className="bg-dark-700 p-4 rounded-lg">
-              <p className="text-white font-medium">{deleteItem.item.title}</p>
-              {deleteItem.item.description && (
-                <p className="text-dark-300 text-sm mt-1">{deleteItem.item.description}</p>
-              )}
-            </div>
-          )}
-          <div className="flex justify-end space-x-3 pt-4">
-            <Button 
-              variant="ghost" 
-              onClick={() => {
-                setShowDeleteModal(false);
-                setDeleteItem(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="danger" 
-              onClick={handleConfirmDelete}
-            >
-              Delete {deleteItem?.type}
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };
 
-// Course Modal Component
-const CourseModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (data: any) => void;
-  course?: any;
-}> = ({ isOpen, onClose, onSubmit, course }) => {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: ''
-  });
-
-  useEffect(() => {
-    if (course) {
-      setFormData({
-        title: course.title || '',
-        description: course.description || ''
-      });
-    } else {
-      setFormData({ title: '', description: '' });
-    }
-  }, [course, isOpen]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(formData);
-    setFormData({ title: '', description: '' });
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={course ? 'Edit Course' : 'Create New Course'}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-dark-300 mb-2">Course Title</label>
-          <input
-            type="text"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="Enter course title"
-            required
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-dark-300 mb-2">Description</label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            rows={4}
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="Enter course description"
-            required
-          />
-        </div>
-        
-        <div className="flex justify-end space-x-3 pt-4">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit">
-            {course ? 'Update Course' : 'Create Course'}
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  );
-};
-
 // Week Modal Component
-const WeekModal: React.FC<{
+interface WeekModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
-  week?: any;
+  onSave: (week: Partial<Week>) => void;
+  week: Week | null;
   weekNumber: number;
-}> = ({ isOpen, onClose, onSubmit, week, weekNumber }) => {
-  const [formData, setFormData] = useState({
-    weekNumber: weekNumber,
-    title: '',
-    description: '',
-    startDate: '',
-    endDate: ''
-  });
+}
 
-  useEffect(() => {
-    if (week) {
-      setFormData({
-        weekNumber: week.weekNumber || weekNumber,
-        title: week.title || '',
-        description: week.description || '',
-        startDate: week.startDate?.split('T')[0] || '',
-        endDate: week.endDate?.split('T')[0] || ''
-      });
-    } else {
-      setFormData({
-        weekNumber,
-        title: '',
-        description: '',
-        startDate: '',
-        endDate: ''
-      });
-    }
-  }, [week, weekNumber, isOpen]);
+const WeekModal: React.FC<WeekModalProps> = ({ isOpen, onClose, onSave, week, weekNumber }) => {
+  const [formData, setFormData] = useState({
+    weekNumber: week?.weekNumber || weekNumber,
+    title: week?.title || '',
+    description: week?.description || '',
+    startDate: week?.startDate ? week.startDate.split('T')[0] : '',
+    endDate: week?.endDate ? week.endDate.split('T')[0] : '',
+    isActive: week?.isActive || false
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
+    
+    const weekData = {
       ...formData,
       startDate: new Date(formData.startDate).toISOString(),
-      endDate: new Date(formData.endDate).toISOString()
-    });
-    setFormData({ weekNumber: weekNumber + 1, title: '', description: '', startDate: '', endDate: '' });
+      endDate: new Date(formData.endDate + 'T23:59:59').toISOString(),
+      lectures: week?.lectures || [],
+      assignments: week?.assignments || []
+    };
+    
+    onSave(weekData);
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={week ? 'Edit Week' : 'Create New Week'}>
+    <Modal isOpen={isOpen} onClose={onClose} title={week ? 'Edit Week' : 'Create Week'}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-dark-300 mb-2">Week Number</label>
-          <input
-            type="number"
-            value={formData.weekNumber}
-            onChange={(e) => setFormData({ ...formData, weekNumber: parseInt(e.target.value) })}
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            required
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-dark-300 mb-2">Week Number</label>
+            <input
+              type="number"
+              min="1"
+              value={formData.weekNumber}
+              onChange={(e) => setFormData(prev => ({ ...prev, weekNumber: parseInt(e.target.value) }))}
+              className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={formData.isActive}
+                onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.checked }))}
+                className="mr-2 rounded border-dark-600 bg-dark-700 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-dark-300">Active (visible to students)</span>
+            </label>
+          </div>
         </div>
-        
+
         <div>
-          <label className="block text-sm font-medium text-dark-300 mb-2">Week Title</label>
+          <label className="block text-sm font-medium text-dark-300 mb-2">Title</label>
           <input
             type="text"
             value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="Enter week title"
+            onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+            className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
             required
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-dark-300 mb-2">Description</label>
           <textarea
             value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+            className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
             rows={3}
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="Enter week description"
             required
           />
         </div>
-        
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-dark-300 mb-2">Start Date</label>
             <input
               type="date"
               value={formData.startDate}
-              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-              className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
+              className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
               required
             />
           </div>
-          
           <div>
             <label className="block text-sm font-medium text-dark-300 mb-2">End Date</label>
             <input
               type="date"
               value={formData.endDate}
-              onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-              className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
+              className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
               required
             />
           </div>
         </div>
-        
-        <div className="flex justify-end space-x-3 pt-4">
+
+        <div className="flex justify-end space-x-3">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
@@ -994,339 +706,137 @@ const WeekModal: React.FC<{
   );
 };
 
-// Lecture Modal Component
-const LectureModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (data: any) => void;
-  lecture?: any;
-  weeks: Week[];
-}> = ({ isOpen, onClose, onSubmit, lecture, weeks }) => {
-  const [formData, setFormData] = useState({
-    weekId: '',
-    title: '',
-    description: '',
-    videoUrl: '',
-    duration: 0,
-    order: 1,
-    isPublished: false
-  });
-
-  useEffect(() => {
-    if (lecture) {
-      setFormData({
-        weekId: lecture.weekId || '',
-        title: lecture.title || '',
-        description: lecture.description || '',
-        videoUrl: lecture.videoUrl || '',
-        duration: lecture.duration || 0,
-        order: lecture.order || 1,
-        isPublished: lecture.isPublished || false
-      });
-    } else {
-      setFormData({
-        weekId: weeks[0]?.id || '',
-        title: '',
-        description: '',
-        videoUrl: '',
-        duration: 0,
-        order: 1,
-        isPublished: false
-      });
-    }
-  }, [lecture, weeks, isOpen]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(formData);
-    setFormData({ weekId: '', title: '', description: '', videoUrl: '', duration: 0, order: 1, isPublished: false });
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={lecture ? 'Edit Lecture' : 'Create New Lecture'}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-dark-300 mb-2">Week</label>
-          <select
-            value={formData.weekId}
-            onChange={(e) => setFormData({ ...formData, weekId: e.target.value })}
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-            required
-          >
-            <option value="">Select a week</option>
-            {weeks.map((week) => (
-              <option key={week.id} value={week.id}>
-                Week {week.weekNumber}: {week.title}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-dark-300 mb-2">Lecture Title</label>
-          <input
-            type="text"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="Enter lecture title"
-            required
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-dark-300 mb-2">Description</label>
-          <textarea
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            rows={3}
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="Enter lecture description"
-            required
-          />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-dark-300 mb-2">Video URL</label>
-          <input
-            type="url"
-            value={formData.videoUrl}
-            onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="https://example.com/video.mp4"
-          />
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-dark-300 mb-2">Duration (minutes)</label>
-            <input
-              type="number"
-              value={formData.duration}
-              onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
-              className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              min="0"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-dark-300 mb-2">Order</label>
-            <input
-              type="number"
-              value={formData.order}
-              onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) })}
-              className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              min="1"
-              required
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="isPublished"
-            checked={formData.isPublished}
-            onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
-            className="w-4 h-4 text-primary-600 bg-dark-700 border-dark-600 rounded focus:ring-primary-500"
-          />
-          <label htmlFor="isPublished" className="ml-2 text-sm text-dark-300">
-            Publish immediately
-          </label>
-        </div>
-        
-        <div className="flex justify-end space-x-3 pt-4">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit">
-            {lecture ? 'Update Lecture' : 'Create Lecture'}
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  );
-};
-
 // Assignment Modal Component
-const AssignmentModal: React.FC<{
+interface AssignmentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
-  assignment?: any;
-  weeks: Week[];
-}> = ({ isOpen, onClose, onSubmit, assignment, weeks }) => {
-  const [formData, setFormData] = useState({
-    weekId: '',
-    title: '',
-    description: '',
-    type: 'homework' as 'homework' | 'quiz' | 'project',
-    totalPoints: 100,
-    dueDate: '',
-    timeLimit: 0,
-    attempts: 1,
-    isPublished: false
-  });
+  onSave: (assignment: Partial<Assignment>) => void;
+  assignment: Assignment | null;
+}
 
-  useEffect(() => {
-    if (assignment) {
-      setFormData({
-        weekId: assignment.weekId || '',
-        title: assignment.title || '',
-        description: assignment.description || '',
-        type: assignment.type || 'homework',
-        totalPoints: assignment.totalPoints || 100,
-        dueDate: assignment.dueDate?.split('T')[0] || '',
-        timeLimit: assignment.timeLimit || 0,
-        attempts: assignment.attempts || 1,
-        isPublished: assignment.isPublished || false
-      });
-    } else {
-      setFormData({
-        weekId: weeks[0]?.id || '',
-        title: '',
-        description: '',
-        type: 'homework',
-        totalPoints: 100,
-        dueDate: '',
-        timeLimit: 0,
-        attempts: 1,
-        isPublished: false
-      });
-    }
-  }, [assignment, weeks, isOpen]);
+const AssignmentModal: React.FC<AssignmentModalProps> = ({ isOpen, onClose, onSave, assignment }) => {
+  const [formData, setFormData] = useState({
+    title: assignment?.title || '',
+    description: assignment?.description || '',
+    type: assignment?.type || 'homework' as Assignment['type'],
+    totalPoints: assignment?.totalPoints || 100,
+    dueDate: assignment?.dueDate ? assignment.dueDate.split('T')[0] : '',
+    timeLimit: assignment?.timeLimit || 0,
+    attempts: assignment?.attempts || 3,
+    isPublished: assignment?.isPublished || false
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
+    
+    const assignmentData = {
       ...formData,
-      dueDate: new Date(formData.dueDate).toISOString()
-    });
-    setFormData({ weekId: '', title: '', description: '', type: 'homework', totalPoints: 100, dueDate: '', timeLimit: 0, attempts: 1, isPublished: false });
+      dueDate: new Date(formData.dueDate + 'T23:59:59').toISOString(),
+      questions: assignment?.questions || []
+    };
+    
+    onSave(assignmentData);
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={assignment ? 'Edit Assignment' : 'Create New Assignment'}>
+    <Modal isOpen={isOpen} onClose={onClose} title={assignment ? 'Edit Assignment' : 'Create Assignment'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-dark-300 mb-2">Week</label>
-          <select
-            value={formData.weekId}
-            onChange={(e) => setFormData({ ...formData, weekId: e.target.value })}
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-            required
-          >
-            <option value="">Select a week</option>
-            {weeks.map((week) => (
-              <option key={week.id} value={week.id}>
-                Week {week.weekNumber}: {week.title}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-dark-300 mb-2">Assignment Title</label>
+          <label className="block text-sm font-medium text-dark-300 mb-2">Title</label>
           <input
             type="text"
             value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="Enter assignment title"
+            onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+            className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
             required
           />
         </div>
-        
+
         <div>
           <label className="block text-sm font-medium text-dark-300 mb-2">Description</label>
           <textarea
             value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+            className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
             rows={3}
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            placeholder="Enter assignment description"
             required
           />
         </div>
-        
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-dark-300 mb-2">Type</label>
             <select
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-              className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as Assignment['type'] }))}
+              className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <option value="homework">Homework</option>
               <option value="quiz">Quiz</option>
               <option value="project">Project</option>
             </select>
           </div>
-          
           <div>
             <label className="block text-sm font-medium text-dark-300 mb-2">Total Points</label>
             <input
               type="number"
+              min="1"
               value={formData.totalPoints}
-              onChange={(e) => setFormData({ ...formData, totalPoints: parseInt(e.target.value) })}
-              className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              min="1"
-              required
-            />
-          </div>
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium text-dark-300 mb-2">Due Date</label>
-          <input
-            type="date"
-            value={formData.dueDate}
-            onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-            className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            required
-          />
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-dark-300 mb-2">Time Limit (minutes)</label>
-            <input
-              type="number"
-              value={formData.timeLimit}
-              onChange={(e) => setFormData({ ...formData, timeLimit: parseInt(e.target.value) })}
-              className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              min="0"
-              placeholder="0 for unlimited"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-dark-300 mb-2">Attempts Allowed</label>
-            <input
-              type="number"
-              value={formData.attempts}
-              onChange={(e) => setFormData({ ...formData, attempts: parseInt(e.target.value) })}
-              className="w-full px-4 py-3 bg-dark-700 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              min="1"
+              onChange={(e) => setFormData(prev => ({ ...prev, totalPoints: parseInt(e.target.value) }))}
+              className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
               required
             />
           </div>
         </div>
 
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="assignmentPublished"
-            checked={formData.isPublished}
-            onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
-            className="w-4 h-4 text-primary-600 bg-dark-700 border-dark-600 rounded focus:ring-primary-500"
-          />
-          <label htmlFor="assignmentPublished" className="ml-2 text-sm text-dark-300">
-            Publish immediately
-          </label>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-dark-300 mb-2">Due Date</label>
+            <input
+              type="date"
+              value={formData.dueDate}
+              onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+              className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-dark-300 mb-2">Time Limit (minutes, 0 = unlimited)</label>
+            <input
+              type="number"
+              min="0"
+              value={formData.timeLimit}
+              onChange={(e) => setFormData(prev => ({ ...prev, timeLimit: parseInt(e.target.value) }))}
+              className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
         </div>
-        
-        <div className="flex justify-end space-x-3 pt-4">
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-dark-300 mb-2">Max Attempts</label>
+            <input
+              type="number"
+              min="1"
+              value={formData.attempts}
+              onChange={(e) => setFormData(prev => ({ ...prev, attempts: parseInt(e.target.value) }))}
+              className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div className="flex items-center">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={formData.isPublished}
+                onChange={(e) => setFormData(prev => ({ ...prev, isPublished: e.target.checked }))}
+                className="mr-2 rounded border-dark-600 bg-dark-700 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-dark-300">Published (visible to students)</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="flex justify-end space-x-3">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>

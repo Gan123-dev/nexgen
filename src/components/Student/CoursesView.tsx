@@ -17,6 +17,7 @@ import {
 import Card from '../UI/Card';
 import Button from '../UI/Button';
 import Modal from '../UI/Modal';
+import LectureViewer from './LectureViewer';
 import { Course, Week, Lecture, Assignment } from '../../types';
 import { getCourses, getWeeks, updateStudentProgress } from '../../services/database';
 import { useAuth } from '../../hooks/useAuth';
@@ -31,7 +32,7 @@ const CoursesView: React.FC = () => {
   const [selectedLecture, setSelectedLecture] = useState<Lecture | null>(null);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showLectureModal, setShowLectureModal] = useState(false);
+  const [showLectureViewer, setShowLectureViewer] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'lectures' | 'assignments'>('overview');
 
@@ -68,15 +69,21 @@ const CoursesView: React.FC = () => {
     }
   };
 
-  const handleLectureComplete = async (lectureId: string) => {
-    if (!user || !selectedCourse) return;
+  const handleLectureSelect = (lecture: Lecture) => {
+    setSelectedLecture(lecture);
+    setShowLectureViewer(true);
+  };
+
+  const handleLectureComplete = async () => {
+    if (!user || !selectedCourse || !selectedLecture) return;
     
     try {
       await updateStudentProgress(user.uid, selectedCourse.id, {
-        completedActivities: [lectureId],
+        completedActivities: [selectedLecture.id],
         lastAccessed: new Date().toISOString()
       });
       toast.success('Lecture completed!');
+      setShowLectureViewer(false);
     } catch (error) {
       toast.error('Failed to update progress');
     }
@@ -102,6 +109,19 @@ const CoursesView: React.FC = () => {
       <div className="flex items-center justify-center h-96">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
+    );
+  }
+
+  if (showLectureViewer && selectedLecture) {
+    return (
+      <LectureViewer
+        lecture={selectedLecture}
+        onBack={() => {
+          setShowLectureViewer(false);
+          setSelectedLecture(null);
+        }}
+        onComplete={handleLectureComplete}
+      />
     );
   }
 
@@ -134,7 +154,7 @@ const CoursesView: React.FC = () => {
               <h3 className="text-white font-semibold mb-2">{course.title}</h3>
               <p className="text-dark-300 text-sm mb-3">{course.description}</p>
               <div className="flex items-center justify-between text-xs text-dark-400">
-                <span>{course.weeks?.length || 0} weeks</span>
+                <span>{weeks.length} weeks</span>
                 <span>Updated {new Date(course.updatedAt).toLocaleDateString()}</span>
               </div>
             </motion.div>
@@ -287,10 +307,7 @@ const CoursesView: React.FC = () => {
                               {lecture.isPublished ? (
                                 <Button 
                                   size="sm" 
-                                  onClick={() => {
-                                    setSelectedLecture(lecture);
-                                    setShowLectureModal(true);
-                                  }}
+                                  onClick={() => handleLectureSelect(lecture)}
                                   icon={<Play className="h-4 w-4" />}
                                 >
                                   Watch
@@ -392,55 +409,6 @@ const CoursesView: React.FC = () => {
           </Card>
         </>
       )}
-
-      {/* Lecture Modal */}
-      <Modal 
-        isOpen={showLectureModal} 
-        onClose={() => setShowLectureModal(false)} 
-        title={selectedLecture?.title || 'Lecture'}
-        maxWidth="2xl"
-      >
-        {selectedLecture && (
-          <div className="space-y-6">
-            <div className="aspect-video bg-dark-900 rounded-lg flex items-center justify-center">
-              {selectedLecture.videoUrl ? (
-                <video 
-                  controls 
-                  className="w-full h-full rounded-lg"
-                  src={selectedLecture.videoUrl}
-                >
-                  Your browser does not support the video tag.
-                </video>
-              ) : (
-                <div className="text-center">
-                  <Video className="h-16 w-16 text-dark-400 mx-auto mb-4" />
-                  <p className="text-dark-300">Video will be available soon</p>
-                </div>
-              )}
-            </div>
-            
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-2">{selectedLecture.title}</h3>
-              <p className="text-dark-300 mb-4">{selectedLecture.description}</p>
-              
-              <div className="flex items-center space-x-4 text-sm text-dark-400 mb-6">
-                <span>Duration: {selectedLecture.duration || 0} minutes</span>
-                <span>Resources: {selectedLecture.resources?.length || 0}</span>
-                <span>Activities: {selectedLecture.activities?.length || 0}</span>
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-3">
-              <Button variant="ghost" onClick={() => setShowLectureModal(false)}>
-                Close
-              </Button>
-              <Button onClick={() => handleLectureComplete(selectedLecture.id)}>
-                Mark as Complete
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
 
       {/* Assignment Modal */}
       <Modal 
