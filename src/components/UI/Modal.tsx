@@ -51,7 +51,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto">
           <motion.div
             className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
@@ -60,13 +60,14 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
             onClick={onClose}
           />
           <motion.div
-            className={`relative w-full ${maxWidthClasses[maxWidth]} bg-dark-800 rounded-xl border border-dark-700 shadow-2xl`}
+            className={`relative w-full ${maxWidthClasses[maxWidth]} bg-dark-800 rounded-xl border border-dark-700 shadow-2xl my-8 max-h-[calc(100vh-4rem)]`}
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2 }}
           >
-            <div className="flex items-center justify-between p-6 border-b border-dark-700">
+            {/* Header - Fixed */}
+            <div className="flex items-center justify-between p-6 border-b border-dark-700 bg-dark-800 rounded-t-xl sticky top-0 z-10">
               <h2 className="text-xl font-semibold text-white">{title}</h2>
               <Button
                 variant="ghost"
@@ -75,8 +76,12 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
                 icon={<X className="h-4 w-4" />}
               />
             </div>
-            <div className="p-6">
-              {children}
+            
+            {/* Content - Scrollable */}
+            <div className="overflow-y-auto max-h-[calc(100vh-12rem)]">
+              <div className="p-6">
+                {children}
+              </div>
             </div>
           </motion.div>
         </div>

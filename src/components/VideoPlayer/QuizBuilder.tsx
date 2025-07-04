@@ -269,7 +269,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({
               </Button>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-96 overflow-y-auto">
               {quizData.questions.map((question, index) => (
                 <motion.div
                   key={question.id}
@@ -342,7 +342,7 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({
         </Card>
 
         {/* Actions */}
-        <div className="flex justify-end space-x-3">
+        <div className="flex justify-end space-x-3 pt-4 border-t border-dark-700">
           <Button variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
@@ -439,7 +439,7 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({ question, onSave, onCan
             <label className="block text-sm font-medium text-dark-300 mb-2">
               Answer Options
             </label>
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-48 overflow-y-auto">
               {(questionData.options || []).map((option, index) => (
                 <div key={index} className="flex items-center space-x-2">
                   <input
@@ -522,7 +522,7 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({ question, onSave, onCan
           />
         </div>
 
-        <div className="flex justify-end space-x-3">
+        <div className="flex justify-end space-x-3 pt-4 border-t border-dark-700">
           <Button variant="ghost" onClick={onCancel}>
             Cancel
           </Button>

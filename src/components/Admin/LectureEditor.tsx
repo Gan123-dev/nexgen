@@ -59,6 +59,12 @@ const LectureEditor: React.FC<LectureEditorProps> = ({
     }
   }, [lecture?.id]);
 
+  useEffect(() => {
+    if (lecture) {
+      setLectureData(lecture);
+    }
+  }, [lecture]);
+
   const loadQuiz = async () => {
     if (!lecture?.id) return;
     
@@ -315,7 +321,7 @@ const LectureEditor: React.FC<LectureEditorProps> = ({
         </Card>
 
         {/* Actions */}
-        <div className="flex justify-end space-x-3">
+        <div className="flex justify-end space-x-3 pt-4 border-t border-dark-700">
           <Button variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
