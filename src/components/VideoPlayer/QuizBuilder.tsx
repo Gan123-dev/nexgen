@@ -10,7 +10,8 @@ import {
   Award,
   FileText,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Infinity
 } from 'lucide-react';
 import Button from '../UI/Button';
 import Card from '../UI/Card';
@@ -192,13 +193,34 @@ const QuizBuilder: React.FC<QuizBuilderProps> = ({
               <label className="block text-sm font-medium text-dark-300 mb-2">
                 Max Attempts
               </label>
-              <input
-                type="number"
-                min="1"
-                value={quizData.maxAttempts}
-                onChange={(e) => setQuizData(prev => ({ ...prev, maxAttempts: parseInt(e.target.value) || 3 }))}
-                className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
+              <div className="relative">
+                <input
+                  type="number"
+                  min="1"
+                  value={quizData.maxAttempts === -1 ? '' : quizData.maxAttempts}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value === '') {
+                      setQuizData(prev => ({ ...prev, maxAttempts: -1 }));
+                    } else {
+                      setQuizData(prev => ({ ...prev, maxAttempts: parseInt(value) || 3 }));
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="Enter number or leave empty for unlimited"
+                />
+                <button
+                  type="button"
+                  onClick={() => setQuizData(prev => ({ ...prev, maxAttempts: -1 }))}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-dark-400 hover:text-white"
+                  title="Set to unlimited"
+                >
+                  <Infinity className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="text-xs text-dark-400 mt-1">
+                {quizData.maxAttempts === -1 ? 'Unlimited attempts' : `${quizData.maxAttempts} attempts allowed`}
+              </p>
             </div>
           </div>
 

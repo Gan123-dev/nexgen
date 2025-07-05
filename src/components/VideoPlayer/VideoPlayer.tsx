@@ -286,14 +286,21 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       } else {
         toast.error(`Quiz failed with ${score}%. Try again!`);
       }
-      
-      setShowQuiz(false);
     } catch (error) {
       toast.error('Failed to submit quiz. Please try again.');
       console.error('Quiz submission error:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleQuizRetake = () => {
+    setCurrentAttempt(null);
+    // Don't close the quiz, just reset the attempt
+  };
+
+  const openVideoInNewTab = () => {
+    window.open(videoUrl, '_blank');
   };
 
   const formatTime = (seconds: number): string => {
@@ -313,10 +320,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       attemptCount: quizAttempts.length,
       maxAttempts: quiz?.maxAttempts || 3
     };
-  };
-
-  const openVideoInNewTab = () => {
-    window.open(videoUrl, '_blank');
   };
 
   const opts: YouTubeProps['opts'] = {
@@ -507,7 +510,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               <div className="text-xs text-dark-400">Passing Score</div>
             </div>
             <div className="bg-dark-700 p-3 rounded-lg text-center">
-              <div className="text-lg font-bold text-white">{quizStatus.attemptCount}/{quizStatus.maxAttempts}</div>
+              <div className="text-lg font-bold text-white">
+                {quiz.maxAttempts === -1 ? '∞' : `${quizStatus.attemptCount}/${quizStatus.maxAttempts}`}
+              </div>
               <div className="text-xs text-dark-400">Attempts</div>
             </div>
             <div className="bg-dark-700 p-3 rounded-lg text-center">
@@ -526,7 +531,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             </div>
           ) : (
             <div className="space-y-3">
-              {quizStatus.attemptCount >= quizStatus.maxAttempts && !quizStatus.hasPassed ? (
+              {quizStatus.attemptCount >= quizStatus.maxAttempts && quiz.maxAttempts !== -1 && !quizStatus.hasPassed ? (
                 <div className="bg-red-600/10 border border-red-600/20 p-4 rounded-lg">
                   <div className="flex items-center text-red-400">
                     <EyeOff className="h-5 w-5 mr-2" />
@@ -587,6 +592,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             onStart={handleQuizStart}
             isLoading={isLoading}
             currentAttempt={currentAttempt}
+            onRetake={handleQuizRetake}
+            onGoBack={() => setShowQuiz(false)}
           />
         )}
       </AnimatePresence>

@@ -6,7 +6,7 @@ export interface Quiz {
   questions: Question[];
   timeLimit?: number; // in minutes, 0 = unlimited
   passingScore?: number; // percentage
-  maxAttempts?: number;
+  maxAttempts?: number; // -1 = unlimited
   shuffleQuestions?: boolean;
   showFeedback?: boolean;
 }
