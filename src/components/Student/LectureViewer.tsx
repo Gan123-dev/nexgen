@@ -187,6 +187,9 @@ const LectureViewer: React.FC<LectureViewerProps> = ({
                 <div className="flex items-center">
                   <Award className="h-4 w-4 mr-1" />
                   Quiz included ({quiz.questions.length} questions)
+                  {lecture.requireVideoCompletion && (
+                    <Lock className="h-3 w-3 ml-1 text-orange-400" />
+                  )}
                 </div>
               )}
             </div>
@@ -225,6 +228,7 @@ const LectureViewer: React.FC<LectureViewerProps> = ({
           quiz={quiz || undefined}
           onVideoComplete={handleVideoComplete}
           onQuizComplete={handleQuizComplete}
+          requireVideoCompletion={lecture.requireVideoCompletion}
         />
       )}
 

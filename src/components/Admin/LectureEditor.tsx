@@ -9,7 +9,9 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import Button from '../UI/Button';
 import Card from '../UI/Card';
@@ -44,7 +46,8 @@ const LectureEditor: React.FC<LectureEditorProps> = ({
     activities: [],
     duration: 0,
     order: 1,
-    isPublished: false
+    isPublished: false,
+    requireVideoCompletion: false // New field for quiz access control
   });
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -61,7 +64,10 @@ const LectureEditor: React.FC<LectureEditorProps> = ({
 
   useEffect(() => {
     if (lecture) {
-      setLectureData(lecture);
+      setLectureData({
+        ...lecture,
+        requireVideoCompletion: lecture.requireVideoCompletion ?? false
+      });
     }
   }, [lecture]);
 
@@ -194,7 +200,7 @@ const LectureEditor: React.FC<LectureEditorProps> = ({
             </div>
           </div>
 
-          <div className="mt-4 flex items-center">
+          <div className="mt-4 flex items-center space-x-6">
             <label className="flex items-center">
               <input
                 type="checkbox"
@@ -280,35 +286,71 @@ const LectureEditor: React.FC<LectureEditorProps> = ({
           </div>
 
           {quiz ? (
-            <div className="bg-dark-700 p-4 rounded-lg">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-white font-medium">{quiz.title}</h4>
-                <span className="text-sm text-accent-400">{quiz.questions.length} questions</span>
-              </div>
-              
-              {quiz.description && (
-                <p className="text-dark-300 text-sm mb-3">{quiz.description}</p>
-              )}
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                <div className="text-center">
-                  <div className="text-white font-medium">{quiz.passingScore || 70}%</div>
-                  <div className="text-dark-400">Passing Score</div>
+            <div className="space-y-4">
+              <div className="bg-dark-700 p-4 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-white font-medium">{quiz.title}</h4>
+                  <span className="text-sm text-accent-400">{quiz.questions.length} questions</span>
                 </div>
-                <div className="text-center">
-                  <div className="text-white font-medium">{quiz.timeLimit || '∞'}</div>
-                  <div className="text-dark-400">Time Limit</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-white font-medium">{quiz.maxAttempts || 3}</div>
-                  <div className="text-dark-400">Max Attempts</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-white font-medium">
-                    {quiz.questions.reduce((sum, q) => sum + q.points, 0)}
+                
+                {quiz.description && (
+                  <p className="text-dark-300 text-sm mb-3">{quiz.description}</p>
+                )}
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  <div className="text-center">
+                    <div className="text-white font-medium">{quiz.passingScore || 70}%</div>
+                    <div className="text-dark-400">Passing Score</div>
                   </div>
-                  <div className="text-dark-400">Total Points</div>
+                  <div className="text-center">
+                    <div className="text-white font-medium">{quiz.timeLimit || '∞'}</div>
+                    <div className="text-dark-400">Time Limit</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-white font-medium">{quiz.maxAttempts || 3}</div>
+                    <div className="text-dark-400">Max Attempts</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-white font-medium">
+                      {quiz.questions.reduce((sum, q) => sum + q.points, 0)}
+                    </div>
+                    <div className="text-dark-400">Total Points</div>
+                  </div>
                 </div>
+              </div>
+
+              {/* Quiz Access Control */}
+              <div className="bg-dark-700 p-4 rounded-lg">
+                <h4 className="text-white font-medium mb-3">Quiz Access Settings</h4>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={lectureData.requireVideoCompletion || false}
+                    onChange={(e) => setLectureData(prev => ({ 
+                      ...prev, 
+                      requireVideoCompletion: e.target.checked 
+                    }))}
+                    className="mr-3 rounded border-dark-600 bg-dark-700 text-primary-600 focus:ring-primary-500"
+                  />
+                  <div className="flex items-center">
+                    {lectureData.requireVideoCompletion ? (
+                      <Lock className="h-4 w-4 mr-2 text-orange-400" />
+                    ) : (
+                      <Unlock className="h-4 w-4 mr-2 text-accent-400" />
+                    )}
+                    <div>
+                      <span className="text-white font-medium">
+                        {lectureData.requireVideoCompletion ? 'Quiz Locked' : 'Quiz Unlocked'}
+                      </span>
+                      <p className="text-dark-300 text-sm">
+                        {lectureData.requireVideoCompletion 
+                          ? 'Students must complete the video before accessing the quiz'
+                          : 'Students can access the quiz immediately'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </label>
               </div>
             </div>
           ) : (
@@ -360,6 +402,7 @@ const LectureEditor: React.FC<LectureEditorProps> = ({
             description={lectureData.description}
             quiz={quiz || undefined}
             isInstructor={true}
+            requireVideoCompletion={lectureData.requireVideoCompletion}
           />
         </Modal>
       )}

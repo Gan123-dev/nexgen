@@ -10,7 +10,8 @@ import {
   Award,
   RefreshCw,
   Eye,
-  EyeOff
+  EyeOff,
+  ExternalLink
 } from 'lucide-react';
 import Button from '../UI/Button';
 import Card from '../UI/Card';
@@ -29,6 +30,7 @@ interface VideoPlayerProps {
   onVideoComplete?: () => void;
   onQuizComplete?: (score: number, passed: boolean) => void;
   isInstructor?: boolean;
+  requireVideoCompletion?: boolean; // New prop for admin control
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -39,7 +41,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   quiz,
   onVideoComplete,
   onQuizComplete,
-  isInstructor = false
+  isInstructor = false,
+  requireVideoCompletion = false // Default to false, admin can control this
 }) => {
   const { user } = useAuth();
   const [videoId, setVideoId] = useState<string>('');
@@ -53,6 +56,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [playerReady, setPlayerReady] = useState(false);
   const [videoDuration, setVideoDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [embedError, setEmbedError] = useState(false);
   const playerRef = useRef<any>(null);
   const progressInterval = useRef<NodeJS.Timeout | null>(null);
 
@@ -61,6 +65,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (extractedVideoId) {
       setVideoId(extractedVideoId);
       setError('');
+      setEmbedError(false);
     } else {
       setError('Invalid YouTube URL. Please provide a valid YouTube video link.');
     }
@@ -116,6 +121,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     playerRef.current = event.target;
     setPlayerReady(true);
     setVideoDuration(event.target.getDuration());
+    setEmbedError(false);
   };
 
   const onPlayerStateChange: YouTubeProps['onStateChange'] = (event) => {
@@ -128,6 +134,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     } else if (event.data === 0) { // Ended
       handleVideoComplete();
     }
+  };
+
+  const onPlayerError = (error: any) => {
+    console.error('YouTube player error:', error);
+    setEmbedError(true);
+    setError('This video cannot be embedded. You can watch it directly on YouTube.');
   };
 
   const startProgressTracking = () => {
@@ -197,8 +209,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     onVideoComplete?.();
     toast.success('Video completed! 🎉');
 
-    // Show quiz if available
-    if (quiz && quiz.questions.length > 0) {
+    // Show quiz if available and auto-show is enabled
+    if (quiz && quiz.questions.length > 0 && !requireVideoCompletion) {
       setTimeout(() => {
         setShowQuiz(true);
       }, 1000);
@@ -303,6 +315,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   };
 
+  const openVideoInNewTab = () => {
+    window.open(videoUrl, '_blank');
+  };
+
   const opts: YouTubeProps['opts'] = {
     height: '100%',
     width: '100%',
@@ -312,6 +328,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       rel: 0,
       showinfo: 0,
       modestbranding: 1,
+      origin: window.location.origin,
     },
   };
 
@@ -322,10 +339,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           <AlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-white mb-2">Video Error</h3>
           <p className="text-dark-300 mb-4">{error}</p>
-          <Button variant="outline" onClick={() => window.location.reload()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry
-          </Button>
+          <div className="space-y-2">
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+            <Button variant="outline" onClick={openVideoInNewTab}>
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Watch on YouTube
+            </Button>
+          </div>
         </div>
       </Card>
     );
@@ -343,50 +366,63 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }
 
   const quizStatus = getQuizStatus();
+  const canAccessQuiz = !requireVideoCompletion || isVideoCompleted || isInstructor;
 
   return (
     <div className="space-y-6">
       {/* Video Player */}
       <Card className="overflow-hidden">
         <div className="aspect-video bg-black relative">
-          <YouTube
-            videoId={videoId}
-            opts={opts}
-            onReady={onPlayerReady}
-            onStateChange={onPlayerStateChange}
-            onError={(error) => {
-              console.error('YouTube player error:', error);
-              setError('Failed to load video. Please check the URL and try again.');
-            }}
-            className="absolute inset-0 w-full h-full"
-          />
-          
-          {/* Video Progress Overlay */}
-          {playerReady && (
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-              <div className="flex items-center justify-between text-white text-sm mb-2">
-                <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(videoDuration)}</span>
-              </div>
-              <div className="w-full bg-dark-600 rounded-full h-1">
-                <div 
-                  className="bg-primary-600 h-1 rounded-full transition-all duration-300"
-                  style={{ width: `${videoProgress}%` }}
-                />
+          {embedError ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-dark-800">
+              <div className="text-center">
+                <AlertCircle className="h-16 w-16 text-orange-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-white mb-2">Video Embedding Restricted</h3>
+                <p className="text-dark-300 mb-4">This video cannot be embedded. Watch it directly on YouTube.</p>
+                <Button onClick={openVideoInNewTab} icon={<ExternalLink className="h-4 w-4" />}>
+                  Watch on YouTube
+                </Button>
               </div>
             </div>
-          )}
+          ) : (
+            <>
+              <YouTube
+                videoId={videoId}
+                opts={opts}
+                onReady={onPlayerReady}
+                onStateChange={onPlayerStateChange}
+                onError={onPlayerError}
+                className="absolute inset-0 w-full h-full"
+              />
+              
+              {/* Video Progress Overlay */}
+              {playerReady && !embedError && (
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+                  <div className="flex items-center justify-between text-white text-sm mb-2">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(videoDuration)}</span>
+                  </div>
+                  <div className="w-full bg-dark-600 rounded-full h-1">
+                    <div 
+                      className="bg-primary-600 h-1 rounded-full transition-all duration-300"
+                      style={{ width: `${videoProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
 
-          {/* Completion Badge */}
-          {isVideoCompleted && (
-            <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="absolute top-4 right-4 bg-accent-600 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center"
-            >
-              <CheckCircle className="h-4 w-4 mr-1" />
-              Completed
-            </motion.div>
+              {/* Completion Badge */}
+              {isVideoCompleted && (
+                <motion.div
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="absolute top-4 right-4 bg-accent-600 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center"
+                >
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Completed
+                </motion.div>
+              )}
+            </>
           )}
         </div>
 
@@ -417,6 +453,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 )}
               </div>
             </div>
+
+            {embedError && (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={openVideoInNewTab}
+                icon={<ExternalLink className="h-4 w-4" />}
+              >
+                Watch on YouTube
+              </Button>
+            )}
           </div>
         </div>
       </Card>
@@ -429,12 +476,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               <Award className="h-5 w-5 mr-2 text-secondary-400" />
               {quiz.title}
             </h3>
-            {quizStatus.hasPassed && (
-              <div className="flex items-center text-accent-400 text-sm">
-                <CheckCircle className="h-4 w-4 mr-1" />
-                Passed
-              </div>
-            )}
+            <div className="flex items-center space-x-2">
+              {quizStatus.hasPassed && (
+                <div className="flex items-center text-accent-400 text-sm">
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Passed
+                </div>
+              )}
+              {requireVideoCompletion && !isVideoCompleted && !isInstructor && (
+                <div className="flex items-center text-orange-400 text-sm">
+                  <Eye className="h-4 w-4 mr-1" />
+                  Locked
+                </div>
+              )}
+            </div>
           </div>
 
           {quiz.description && (
@@ -462,7 +517,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           </div>
 
           {/* Quiz Actions */}
-          {!isVideoCompleted ? (
+          {!canAccessQuiz ? (
             <div className="bg-orange-600/10 border border-orange-600/20 p-4 rounded-lg">
               <div className="flex items-center text-orange-400">
                 <Eye className="h-5 w-5 mr-2" />

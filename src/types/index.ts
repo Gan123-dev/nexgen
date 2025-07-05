@@ -42,6 +42,7 @@ export interface Lecture {
   duration?: number;
   order: number;
   isPublished: boolean;
+  requireVideoCompletion?: boolean; // New field for quiz access control
 }
 
 export interface Resource {
