@@ -6,6 +6,7 @@ export interface User {
   photoURL?: string;
   createdAt: string;
   lastLogin?: string;
+  emailVerified?: boolean;
 }
 
 export interface Course {

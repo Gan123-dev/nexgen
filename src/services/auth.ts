@@ -4,7 +4,9 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   User as FirebaseUser,
-  updateProfile
+  updateProfile,
+  sendEmailVerification,
+  reload
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
@@ -26,6 +28,7 @@ const convertFirebaseUser = async (firebaseUser: FirebaseUser): Promise<User | n
       photoURL: firebaseUser.photoURL || undefined,
       createdAt: userData?.createdAt || new Date().toISOString(),
       lastLogin: new Date().toISOString(),
+      emailVerified: firebaseUser.emailVerified,
     };
   } catch (error) {
     console.error('Error converting Firebase user:', error);
@@ -36,6 +39,13 @@ const convertFirebaseUser = async (firebaseUser: FirebaseUser): Promise<User | n
 export const signIn = async (email: string, password: string): Promise<User> => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    
+    // Check if email is verified
+    if (!userCredential.user.emailVerified) {
+      await firebaseSignOut(auth);
+      throw new Error('Please verify your email before signing in. Check your inbox for the verification link.');
+    }
+
     const user = await convertFirebaseUser(userCredential.user);
     
     if (!user) {
@@ -59,7 +69,7 @@ export const signUp = async (
   password: string, 
   displayName: string, 
   role: 'admin' | 'student' = 'student'
-): Promise<User> => {
+): Promise<{ user: User; needsVerification: boolean }> => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     
@@ -75,15 +85,57 @@ export const signUp = async (
       role,
       createdAt: new Date().toISOString(),
       lastLogin: new Date().toISOString(),
+      emailVerified: false,
     };
 
     // Save user data to Firestore
     await setDoc(doc(db, 'users', userCredential.user.uid), userData);
 
-    return userData;
+    // Send email verification
+    await sendEmailVerification(userCredential.user, {
+      url: `${window.location.origin}/login`, // Redirect URL after verification
+      handleCodeInApp: false,
+    });
+
+    // Sign out the user until they verify their email
+    await firebaseSignOut(auth);
+
+    return { 
+      user: userData, 
+      needsVerification: true 
+    };
   } catch (error: any) {
     console.error('Sign up error:', error);
     throw new Error(error.message || 'Failed to create account');
+  }
+};
+
+export const resendVerificationEmail = async (): Promise<void> => {
+  try {
+    if (auth.currentUser && !auth.currentUser.emailVerified) {
+      await sendEmailVerification(auth.currentUser, {
+        url: `${window.location.origin}/login`,
+        handleCodeInApp: false,
+      });
+    } else {
+      throw new Error('No user found or email already verified');
+    }
+  } catch (error: any) {
+    console.error('Resend verification error:', error);
+    throw new Error(error.message || 'Failed to resend verification email');
+  }
+};
+
+export const checkEmailVerification = async (): Promise<boolean> => {
+  try {
+    if (auth.currentUser) {
+      await reload(auth.currentUser);
+      return auth.currentUser.emailVerified;
+    }
+    return false;
+  } catch (error: any) {
+    console.error('Check verification error:', error);
+    return false;
   }
 };
 

@@ -4,15 +4,19 @@ import {
   signIn as authSignIn, 
   signUp as authSignUp, 
   signOut as authSignOut, 
-  onAuthStateChange 
+  onAuthStateChange,
+  resendVerificationEmail as authResendVerification,
+  checkEmailVerification as authCheckVerification
 } from '../services/auth';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, displayName: string, role?: 'admin' | 'student') => Promise<void>;
+  signUp: (email: string, password: string, displayName: string, role?: 'admin' | 'student') => Promise<{ needsVerification: boolean }>;
   signOut: () => Promise<void>;
+  resendVerificationEmail: () => Promise<void>;
+  checkEmailVerification: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -47,8 +51,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = async (email: string, password: string, displayName: string, role: 'admin' | 'student' = 'student') => {
     setLoading(true);
     try {
-      const userData = await authSignUp(email, password, displayName, role);
-      setUser(userData);
+      const result = await authSignUp(email, password, displayName, role);
+      // Don't set user here since they need to verify email first
+      return { needsVerification: result.needsVerification };
     } catch (error) {
       console.error('Sign up error:', error);
       throw error;
@@ -70,8 +75,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const resendVerificationEmail = async () => {
+    try {
+      await authResendVerification();
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      throw error;
+    }
+  };
+
+  const checkEmailVerification = async () => {
+    try {
+      return await authCheckVerification();
+    } catch (error) {
+      console.error('Check verification error:', error);
+      return false;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      signIn, 
+      signUp, 
+      signOut, 
+      resendVerificationEmail,
+      checkEmailVerification
+    }}>
       {children}
     </AuthContext.Provider>
   );
