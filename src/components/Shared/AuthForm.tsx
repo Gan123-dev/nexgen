@@ -38,16 +38,6 @@ const AuthForm: React.FC = () => {
     reset();
   };
 
-  const handleDemoLogin = async (role: 'admin' | 'student') => {
-    try {
-      const email = role === 'admin' ? 'admin@mathlearn.com' : 'student@mathlearn.com';
-      await signIn(email, 'demo123');
-      toast.success(`Logged in as ${role}!`);
-    } catch (error: any) {
-      toast.error(error.message || 'Demo login failed');
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900 flex items-center justify-center p-4">
       <motion.div
@@ -76,39 +66,6 @@ const AuthForm: React.FC = () => {
             <p className="text-dark-300">
               {isSignUp ? 'Join thousands of learners' : 'Sign in to your account'}
             </p>
-          </div>
-
-          {/* Demo Login Buttons */}
-          <div className="mb-6 space-y-2">
-            <p className="text-sm text-dark-400 text-center mb-3">Try the demo:</p>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleDemoLogin('admin')}
-                disabled={loading}
-                className="text-xs"
-              >
-                Demo Admin
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleDemoLogin('student')}
-                disabled={loading}
-                className="text-xs"
-              >
-                Demo Student
-              </Button>
-            </div>
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-dark-600"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-dark-800 text-dark-400">or</span>
-              </div>
-            </div>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

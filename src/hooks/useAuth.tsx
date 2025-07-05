@@ -1,6 +1,11 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User } from '../types';
-import { getCurrentUser, signIn as authSignIn, signUp as authSignUp, signOut as authSignOut } from '../services/auth';
+import { 
+  signIn as authSignIn, 
+  signUp as authSignUp, 
+  signOut as authSignOut, 
+  onAuthStateChange 
+} from '../services/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -17,19 +22,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const currentUser = await getCurrentUser();
-        setUser(currentUser);
-      } catch (error) {
-        console.error('Auth initialization error:', error);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Set up real-time auth state listener
+    const unsubscribe = onAuthStateChange((user) => {
+      setUser(user);
+      setLoading(false);
+    });
 
-    initAuth();
+    return unsubscribe;
   }, []);
 
   const signIn = async (email: string, password: string) => {

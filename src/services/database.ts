@@ -1,411 +1,492 @@
+import { 
+  collection, 
+  doc, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  getDocs, 
+  getDoc, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot,
+  serverTimestamp,
+  Timestamp
+} from 'firebase/firestore';
+import { db } from './firebase';
 import { Course, Week, Lecture, Assignment, StudentProgress, Notification, Analytics } from '../types';
 
-// Mock database service for development with enhanced functionality
-const mockData = {
-  courses: [
-    {
-      id: 'course-1',
-      title: 'Advanced Calculus',
-      description: 'Master advanced calculus concepts including limits, derivatives, and integrals',
-      weeks: [],
-      createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: '2024-01-15T00:00:00Z',
-      createdBy: 'admin-1'
-    },
-    {
-      id: 'course-2',
-      title: 'Linear Algebra',
-      description: 'Comprehensive study of linear algebra including matrices, vectors, and eigenvalues',
-      weeks: [],
-      createdAt: '2024-01-02T00:00:00Z',
-      updatedAt: '2024-01-16T00:00:00Z',
-      createdBy: 'admin-1'
-    }
-  ] as Course[],
-  weeks: {
-    'course-1': [
-      {
-        id: 'week-1-1',
-        courseId: 'course-1',
-        weekNumber: 1,
-        title: 'Introduction to Limits',
-        description: 'Understanding the concept of limits and their applications',
-        lectures: [
-          {
-            id: 'lecture-1-1-1',
-            weekId: 'week-1-1',
-            title: 'What are Limits?',
-            description: 'Introduction to the fundamental concept of limits in calculus',
-            videoUrl: 'https://www.youtube.com/watch?v=riXcZT2ICjA',
-            resources: [],
-            activities: [],
-            duration: 45,
-            order: 1,
-            isPublished: true
-          },
-          {
-            id: 'lecture-1-1-2',
-            weekId: 'week-1-1',
-            title: 'Limit Laws',
-            description: 'Understanding and applying limit laws to solve complex problems',
-            videoUrl: 'https://www.youtube.com/watch?v=kfF40MiS7zA',
-            resources: [],
-            activities: [],
-            duration: 50,
-            order: 2,
-            isPublished: true
-          }
-        ],
-        assignments: [
-          {
-            id: 'assignment-1-1-1',
-            weekId: 'week-1-1',
-            title: 'Limits Practice Problems',
-            description: 'Solve various limit problems to test your understanding',
-            type: 'homework',
-            questions: [],
-            totalPoints: 100,
-            dueDate: '2024-02-01T23:59:59Z',
-            timeLimit: 120,
-            attempts: 3,
-            isPublished: true
-          }
-        ],
-        startDate: '2024-01-15T00:00:00Z',
-        endDate: '2024-01-21T23:59:59Z',
-        isActive: true
-      },
-      {
-        id: 'week-1-2',
-        courseId: 'course-1',
-        weekNumber: 2,
-        title: 'Derivatives',
-        description: 'Learning about derivatives and their applications',
-        lectures: [
-          {
-            id: 'lecture-1-2-1',
-            weekId: 'week-1-2',
-            title: 'Introduction to Derivatives',
-            description: 'Understanding the concept of derivatives and their geometric interpretation',
-            videoUrl: 'https://www.youtube.com/watch?v=WUvTyaaNkzM',
-            resources: [],
-            activities: [],
-            duration: 40,
-            order: 1,
-            isPublished: true
-          }
-        ],
-        assignments: [
-          {
-            id: 'assignment-1-2-1',
-            weekId: 'week-1-2',
-            title: 'Derivative Calculations',
-            description: 'Practice calculating derivatives using various rules',
-            type: 'quiz',
-            questions: [],
-            totalPoints: 75,
-            dueDate: '2024-02-08T23:59:59Z',
-            timeLimit: 90,
-            attempts: 2,
-            isPublished: false
-          }
-        ],
-        startDate: '2024-01-22T00:00:00Z',
-        endDate: '2024-01-28T23:59:59Z',
-        isActive: false
-      }
-    ],
-    'course-2': [
-      {
-        id: 'week-2-1',
-        courseId: 'course-2',
-        weekNumber: 1,
-        title: 'Vectors and Matrices',
-        description: 'Introduction to vectors and matrix operations',
-        lectures: [
-          {
-            id: 'lecture-2-1-1',
-            weekId: 'week-2-1',
-            title: 'Vector Basics',
-            description: 'Understanding vectors in 2D and 3D space',
-            videoUrl: 'https://www.youtube.com/watch?v=fNk_zzaMoSs',
-            resources: [],
-            activities: [],
-            duration: 35,
-            order: 1,
-            isPublished: true
-          }
-        ],
-        assignments: [
-          {
-            id: 'assignment-2-1-1',
-            weekId: 'week-2-1',
-            title: 'Vector Operations',
-            description: 'Practice vector addition, subtraction, and scalar multiplication',
-            type: 'homework',
-            questions: [],
-            totalPoints: 80,
-            dueDate: '2024-02-05T23:59:59Z',
-            timeLimit: 0,
-            attempts: 1,
-            isPublished: true
-          }
-        ],
-        startDate: '2024-01-15T00:00:00Z',
-        endDate: '2024-01-21T23:59:59Z',
-        isActive: true
-      }
-    ]
-  } as Record<string, Week[]>,
-  progress: {} as Record<string, Record<string, StudentProgress>>,
-  notifications: {} as Record<string, Notification[]>,
-  analytics: {
-    totalStudents: 156,
-    activeStudents: 89,
-    courseCompletionRate: 73,
-    averageProgress: 68,
-    weeklyEngagement: [
-      { week: 'Week 1', engagement: 85 },
-      { week: 'Week 2', engagement: 78 },
-      { week: 'Week 3', engagement: 92 },
-      { week: 'Week 4', engagement: 67 },
-    ],
-    topPerformers: [
-      { userId: 'user1', score: 95 },
-      { userId: 'user2', score: 92 },
-      { userId: 'user3', score: 89 },
-    ],
-    contentPerformance: [
-      { contentId: 'calc1', engagement: 88 },
-      { contentId: 'algebra1', engagement: 76 },
-      { contentId: 'stats1', engagement: 82 },
-    ],
-  } as Analytics
+// Helper function to convert Firestore timestamps
+const convertTimestamp = (timestamp: any): string => {
+  if (timestamp && timestamp.toDate) {
+    return timestamp.toDate().toISOString();
+  }
+  return timestamp || new Date().toISOString();
 };
 
 // Course Management
 export const createCourse = async (course: Omit<Course, 'id'>): Promise<string> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const id = Math.random().toString(36).substr(2, 9);
-  const courseWithId = { ...course, id };
-  mockData.courses.push(courseWithId);
-  mockData.weeks[id] = [];
-  return id;
+  try {
+    const courseData = {
+      ...course,
+      weeks: [],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    const docRef = await addDoc(collection(db, 'courses'), courseData);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating course:', error);
+    throw new Error('Failed to create course');
+  }
 };
 
 export const getCourses = async (): Promise<Course[]> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return mockData.courses;
+  try {
+    const querySnapshot = await getDocs(collection(db, 'courses'));
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: convertTimestamp(doc.data().createdAt),
+      updatedAt: convertTimestamp(doc.data().updatedAt)
+    })) as Course[];
+  } catch (error) {
+    console.error('Error fetching courses:', error);
+    throw new Error('Failed to fetch courses');
+  }
 };
 
 export const updateCourse = async (courseId: string, updates: Partial<Course>): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const courseIndex = mockData.courses.findIndex(c => c.id === courseId);
-  if (courseIndex !== -1) {
-    mockData.courses[courseIndex] = { 
-      ...mockData.courses[courseIndex], 
+  try {
+    const courseRef = doc(db, 'courses', courseId);
+    await updateDoc(courseRef, {
       ...updates,
-      updatedAt: new Date().toISOString()
-    };
+      updatedAt: serverTimestamp()
+    });
+  } catch (error) {
+    console.error('Error updating course:', error);
+    throw new Error('Failed to update course');
   }
 };
 
 export const deleteCourse = async (courseId: string): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  mockData.courses = mockData.courses.filter(c => c.id !== courseId);
-  delete mockData.weeks[courseId];
+  try {
+    await deleteDoc(doc(db, 'courses', courseId));
+    
+    // Also delete all weeks for this course
+    const weeksQuery = query(collection(db, 'weeks'), where('courseId', '==', courseId));
+    const weeksSnapshot = await getDocs(weeksQuery);
+    
+    const deletePromises = weeksSnapshot.docs.map(weekDoc => deleteDoc(weekDoc.ref));
+    await Promise.all(deletePromises);
+  } catch (error) {
+    console.error('Error deleting course:', error);
+    throw new Error('Failed to delete course');
+  }
 };
 
 // Week Management
 export const createWeek = async (courseId: string, week: Omit<Week, 'id' | 'courseId'>): Promise<string> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const id = Math.random().toString(36).substr(2, 9);
-  const weekWithId = { ...week, id, courseId };
-  
-  if (!mockData.weeks[courseId]) {
-    mockData.weeks[courseId] = [];
+  try {
+    const weekData = {
+      ...week,
+      courseId,
+      lectures: week.lectures || [],
+      assignments: week.assignments || [],
+      startDate: week.startDate,
+      endDate: week.endDate
+    };
+    
+    const docRef = await addDoc(collection(db, 'weeks'), weekData);
+    
+    // Update course's updatedAt timestamp
+    await updateCourse(courseId, { updatedAt: new Date().toISOString() });
+    
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating week:', error);
+    throw new Error('Failed to create week');
   }
-  mockData.weeks[courseId].push(weekWithId);
-  
-  // Update course's updatedAt timestamp
-  await updateCourse(courseId, { updatedAt: new Date().toISOString() });
-  
-  return id;
 };
 
 export const getWeeks = async (courseId: string): Promise<Week[]> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return mockData.weeks[courseId] || [];
+  try {
+    const q = query(
+      collection(db, 'weeks'), 
+      where('courseId', '==', courseId),
+      orderBy('weekNumber', 'asc')
+    );
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      lectures: doc.data().lectures || [],
+      assignments: doc.data().assignments || []
+    })) as Week[];
+  } catch (error) {
+    console.error('Error fetching weeks:', error);
+    throw new Error('Failed to fetch weeks');
+  }
 };
 
 export const updateWeek = async (courseId: string, weekId: string, updates: Partial<Week>): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const weeks = mockData.weeks[courseId] || [];
-  const weekIndex = weeks.findIndex(w => w.id === weekId);
-  if (weekIndex !== -1) {
-    weeks[weekIndex] = { ...weeks[weekIndex], ...updates };
+  try {
+    const weekRef = doc(db, 'weeks', weekId);
+    await updateDoc(weekRef, updates);
+    
+    // Update course's updatedAt timestamp
     await updateCourse(courseId, { updatedAt: new Date().toISOString() });
+  } catch (error) {
+    console.error('Error updating week:', error);
+    throw new Error('Failed to update week');
   }
 };
 
 export const deleteWeek = async (courseId: string, weekId: string): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  if (mockData.weeks[courseId]) {
-    mockData.weeks[courseId] = mockData.weeks[courseId].filter(w => w.id !== weekId);
+  try {
+    await deleteDoc(doc(db, 'weeks', weekId));
+    
+    // Update course's updatedAt timestamp
     await updateCourse(courseId, { updatedAt: new Date().toISOString() });
+  } catch (error) {
+    console.error('Error deleting week:', error);
+    throw new Error('Failed to delete week');
   }
 };
 
 // Lecture Management
 export const createLecture = async (courseId: string, weekId: string, lecture: Omit<Lecture, 'id' | 'weekId'>): Promise<string> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const id = Math.random().toString(36).substr(2, 9);
-  const lectureWithId = { ...lecture, id, weekId };
-  
-  const weeks = mockData.weeks[courseId] || [];
-  const weekIndex = weeks.findIndex(w => w.id === weekId);
-  if (weekIndex !== -1) {
-    if (!weeks[weekIndex].lectures) {
-      weeks[weekIndex].lectures = [];
+  try {
+    // Get the current week
+    const weekRef = doc(db, 'weeks', weekId);
+    const weekDoc = await getDoc(weekRef);
+    
+    if (!weekDoc.exists()) {
+      throw new Error('Week not found');
     }
-    weeks[weekIndex].lectures!.push(lectureWithId);
+    
+    const weekData = weekDoc.data() as Week;
+    const lectureWithId = {
+      ...lecture,
+      id: Math.random().toString(36).substr(2, 9),
+      weekId
+    };
+    
+    const updatedLectures = [...(weekData.lectures || []), lectureWithId];
+    
+    await updateDoc(weekRef, {
+      lectures: updatedLectures
+    });
+    
+    // Update course's updatedAt timestamp
     await updateCourse(courseId, { updatedAt: new Date().toISOString() });
+    
+    return lectureWithId.id;
+  } catch (error) {
+    console.error('Error creating lecture:', error);
+    throw new Error('Failed to create lecture');
   }
-  
-  return id;
 };
 
 export const updateLecture = async (courseId: string, weekId: string, lectureId: string, updates: Partial<Lecture>): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const weeks = mockData.weeks[courseId] || [];
-  const weekIndex = weeks.findIndex(w => w.id === weekId);
-  if (weekIndex !== -1 && weeks[weekIndex].lectures) {
-    const lectureIndex = weeks[weekIndex].lectures!.findIndex(l => l.id === lectureId);
-    if (lectureIndex !== -1) {
-      weeks[weekIndex].lectures![lectureIndex] = { 
-        ...weeks[weekIndex].lectures![lectureIndex], 
-        ...updates 
-      };
-      await updateCourse(courseId, { updatedAt: new Date().toISOString() });
+  try {
+    const weekRef = doc(db, 'weeks', weekId);
+    const weekDoc = await getDoc(weekRef);
+    
+    if (!weekDoc.exists()) {
+      throw new Error('Week not found');
     }
+    
+    const weekData = weekDoc.data() as Week;
+    const lectures = weekData.lectures || [];
+    const lectureIndex = lectures.findIndex(l => l.id === lectureId);
+    
+    if (lectureIndex === -1) {
+      throw new Error('Lecture not found');
+    }
+    
+    lectures[lectureIndex] = { ...lectures[lectureIndex], ...updates };
+    
+    await updateDoc(weekRef, {
+      lectures: lectures
+    });
+    
+    // Update course's updatedAt timestamp
+    await updateCourse(courseId, { updatedAt: new Date().toISOString() });
+  } catch (error) {
+    console.error('Error updating lecture:', error);
+    throw new Error('Failed to update lecture');
   }
 };
 
 export const deleteLecture = async (courseId: string, weekId: string, lectureId: string): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const weeks = mockData.weeks[courseId] || [];
-  const weekIndex = weeks.findIndex(w => w.id === weekId);
-  if (weekIndex !== -1 && weeks[weekIndex].lectures) {
-    weeks[weekIndex].lectures = weeks[weekIndex].lectures!.filter(l => l.id !== lectureId);
+  try {
+    const weekRef = doc(db, 'weeks', weekId);
+    const weekDoc = await getDoc(weekRef);
+    
+    if (!weekDoc.exists()) {
+      throw new Error('Week not found');
+    }
+    
+    const weekData = weekDoc.data() as Week;
+    const lectures = (weekData.lectures || []).filter(l => l.id !== lectureId);
+    
+    await updateDoc(weekRef, {
+      lectures: lectures
+    });
+    
+    // Update course's updatedAt timestamp
     await updateCourse(courseId, { updatedAt: new Date().toISOString() });
+  } catch (error) {
+    console.error('Error deleting lecture:', error);
+    throw new Error('Failed to delete lecture');
   }
 };
 
 // Assignment Management
 export const createAssignment = async (courseId: string, weekId: string, assignment: Omit<Assignment, 'id' | 'weekId'>): Promise<string> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const id = Math.random().toString(36).substr(2, 9);
-  const assignmentWithId = { ...assignment, id, weekId };
-  
-  const weeks = mockData.weeks[courseId] || [];
-  const weekIndex = weeks.findIndex(w => w.id === weekId);
-  if (weekIndex !== -1) {
-    if (!weeks[weekIndex].assignments) {
-      weeks[weekIndex].assignments = [];
+  try {
+    const weekRef = doc(db, 'weeks', weekId);
+    const weekDoc = await getDoc(weekRef);
+    
+    if (!weekDoc.exists()) {
+      throw new Error('Week not found');
     }
-    weeks[weekIndex].assignments!.push(assignmentWithId);
+    
+    const weekData = weekDoc.data() as Week;
+    const assignmentWithId = {
+      ...assignment,
+      id: Math.random().toString(36).substr(2, 9),
+      weekId
+    };
+    
+    const updatedAssignments = [...(weekData.assignments || []), assignmentWithId];
+    
+    await updateDoc(weekRef, {
+      assignments: updatedAssignments
+    });
+    
+    // Update course's updatedAt timestamp
     await updateCourse(courseId, { updatedAt: new Date().toISOString() });
+    
+    return assignmentWithId.id;
+  } catch (error) {
+    console.error('Error creating assignment:', error);
+    throw new Error('Failed to create assignment');
   }
-  
-  return id;
 };
 
 export const updateAssignment = async (courseId: string, weekId: string, assignmentId: string, updates: Partial<Assignment>): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const weeks = mockData.weeks[courseId] || [];
-  const weekIndex = weeks.findIndex(w => w.id === weekId);
-  if (weekIndex !== -1 && weeks[weekIndex].assignments) {
-    const assignmentIndex = weeks[weekIndex].assignments!.findIndex(a => a.id === assignmentId);
-    if (assignmentIndex !== -1) {
-      weeks[weekIndex].assignments![assignmentIndex] = { 
-        ...weeks[weekIndex].assignments![assignmentIndex], 
-        ...updates 
-      };
-      await updateCourse(courseId, { updatedAt: new Date().toISOString() });
+  try {
+    const weekRef = doc(db, 'weeks', weekId);
+    const weekDoc = await getDoc(weekRef);
+    
+    if (!weekDoc.exists()) {
+      throw new Error('Week not found');
     }
+    
+    const weekData = weekDoc.data() as Week;
+    const assignments = weekData.assignments || [];
+    const assignmentIndex = assignments.findIndex(a => a.id === assignmentId);
+    
+    if (assignmentIndex === -1) {
+      throw new Error('Assignment not found');
+    }
+    
+    assignments[assignmentIndex] = { ...assignments[assignmentIndex], ...updates };
+    
+    await updateDoc(weekRef, {
+      assignments: assignments
+    });
+    
+    // Update course's updatedAt timestamp
+    await updateCourse(courseId, { updatedAt: new Date().toISOString() });
+  } catch (error) {
+    console.error('Error updating assignment:', error);
+    throw new Error('Failed to update assignment');
   }
 };
 
 export const deleteAssignment = async (courseId: string, weekId: string, assignmentId: string): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  const weeks = mockData.weeks[courseId] || [];
-  const weekIndex = weeks.findIndex(w => w.id === weekId);
-  if (weekIndex !== -1 && weeks[weekIndex].assignments) {
-    weeks[weekIndex].assignments = weeks[weekIndex].assignments!.filter(a => a.id !== assignmentId);
+  try {
+    const weekRef = doc(db, 'weeks', weekId);
+    const weekDoc = await getDoc(weekRef);
+    
+    if (!weekDoc.exists()) {
+      throw new Error('Week not found');
+    }
+    
+    const weekData = weekDoc.data() as Week;
+    const assignments = (weekData.assignments || []).filter(a => a.id !== assignmentId);
+    
+    await updateDoc(weekRef, {
+      assignments: assignments
+    });
+    
+    // Update course's updatedAt timestamp
     await updateCourse(courseId, { updatedAt: new Date().toISOString() });
+  } catch (error) {
+    console.error('Error deleting assignment:', error);
+    throw new Error('Failed to delete assignment');
   }
 };
 
 // Student Progress
 export const updateStudentProgress = async (userId: string, courseId: string, progress: Partial<StudentProgress>): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  if (!mockData.progress[userId]) {
-    mockData.progress[userId] = {};
+  try {
+    const progressRef = doc(db, 'progress', `${userId}_${courseId}`);
+    const progressData = {
+      ...progress,
+      userId,
+      courseId,
+      lastAccessed: serverTimestamp()
+    };
+    
+    await updateDoc(progressRef, progressData).catch(async () => {
+      // If document doesn't exist, create it
+      await addDoc(collection(db, 'progress'), {
+        ...progressData,
+        createdAt: serverTimestamp()
+      });
+    });
+  } catch (error) {
+    console.error('Error updating student progress:', error);
+    throw new Error('Failed to update progress');
   }
-  mockData.progress[userId][courseId] = { 
-    ...mockData.progress[userId][courseId], 
-    ...progress,
-    userId,
-    courseId
-  } as StudentProgress;
 };
 
 export const getStudentProgress = async (userId: string, courseId: string): Promise<StudentProgress | null> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return mockData.progress[userId]?.[courseId] || null;
+  try {
+    const progressRef = doc(db, 'progress', `${userId}_${courseId}`);
+    const progressDoc = await getDoc(progressRef);
+    
+    if (!progressDoc.exists()) {
+      return null;
+    }
+    
+    const data = progressDoc.data();
+    return {
+      ...data,
+      lastAccessed: convertTimestamp(data.lastAccessed)
+    } as StudentProgress;
+  } catch (error) {
+    console.error('Error fetching student progress:', error);
+    return null;
+  }
 };
 
 // Notifications
 export const createNotification = async (notification: Omit<Notification, 'id'>): Promise<string> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  const id = Math.random().toString(36).substr(2, 9);
-  const notificationWithId = { ...notification, id };
-  
-  if (!mockData.notifications[notification.userId]) {
-    mockData.notifications[notification.userId] = [];
+  try {
+    const notificationData = {
+      ...notification,
+      createdAt: serverTimestamp()
+    };
+    
+    const docRef = await addDoc(collection(db, 'notifications'), notificationData);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating notification:', error);
+    throw new Error('Failed to create notification');
   }
-  mockData.notifications[notification.userId].push(notificationWithId);
-  return id;
 };
 
 export const getUserNotifications = async (userId: string): Promise<Notification[]> => {
-  await new Promise(resolve => setTimeout(resolve, 300));
-  return mockData.notifications[userId] || [];
+  try {
+    const q = query(
+      collection(db, 'notifications'),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+    const querySnapshot = await getDocs(q);
+    
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: convertTimestamp(doc.data().createdAt)
+    })) as Notification[];
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    throw new Error('Failed to fetch notifications');
+  }
 };
 
-// Real-time listeners (mock implementation)
+// Real-time listeners
 export const subscribeToProgressUpdates = (userId: string, courseId: string, callback: (progress: StudentProgress | null) => void) => {
-  // Simulate real-time updates
-  const interval = setInterval(() => {
-    const progress = mockData.progress[userId]?.[courseId] || null;
-    callback(progress);
-  }, 5000);
+  const progressRef = doc(db, 'progress', `${userId}_${courseId}`);
   
-  return () => clearInterval(interval);
+  return onSnapshot(progressRef, (doc) => {
+    if (doc.exists()) {
+      const data = doc.data();
+      callback({
+        ...data,
+        lastAccessed: convertTimestamp(data.lastAccessed)
+      } as StudentProgress);
+    } else {
+      callback(null);
+    }
+  }, (error) => {
+    console.error('Error in progress subscription:', error);
+    callback(null);
+  });
 };
 
 export const subscribeToNotifications = (userId: string, callback: (notifications: Notification[]) => void) => {
-  // Simulate real-time updates
-  const interval = setInterval(() => {
-    const notifications = mockData.notifications[userId] || [];
-    callback(notifications);
-  }, 10000);
+  const q = query(
+    collection(db, 'notifications'),
+    where('userId', '==', userId),
+    orderBy('createdAt', 'desc')
+  );
   
-  return () => clearInterval(interval);
+  return onSnapshot(q, (querySnapshot) => {
+    const notifications = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: convertTimestamp(doc.data().createdAt)
+    })) as Notification[];
+    
+    callback(notifications);
+  }, (error) => {
+    console.error('Error in notifications subscription:', error);
+    callback([]);
+  });
 };
 
-// Analytics
+// Analytics (mock data for now, can be enhanced with real analytics)
 export const getAnalytics = async (): Promise<Analytics> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return mockData.analytics;
+  try {
+    // Get basic counts from Firestore
+    const [coursesSnapshot, usersSnapshot] = await Promise.all([
+      getDocs(collection(db, 'courses')),
+      getDocs(query(collection(db, 'users'), where('role', '==', 'student')))
+    ]);
+
+    return {
+      totalStudents: usersSnapshot.size,
+      activeStudents: Math.floor(usersSnapshot.size * 0.7), // Mock active percentage
+      courseCompletionRate: 73,
+      averageProgress: 68,
+      weeklyEngagement: [
+        { week: 'Week 1', engagement: 85 },
+        { week: 'Week 2', engagement: 78 },
+        { week: 'Week 3', engagement: 92 },
+        { week: 'Week 4', engagement: 67 },
+      ],
+      topPerformers: [
+        { userId: 'user1', score: 95 },
+        { userId: 'user2', score: 92 },
+        { userId: 'user3', score: 89 },
+      ],
+      contentPerformance: [
+        { contentId: 'calc1', engagement: 88 },
+        { contentId: 'algebra1', engagement: 76 },
+        { contentId: 'stats1', engagement: 82 },
+      ],
+    };
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    throw new Error('Failed to fetch analytics');
+  }
 };

@@ -1,25 +1,57 @@
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  User as FirebaseUser,
+  updateProfile
+} from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from './firebase';
 import { User } from '../types';
 
-// Mock authentication service for development
-let currentUser: User | null = null;
+// Convert Firebase user to our User type
+const convertFirebaseUser = async (firebaseUser: FirebaseUser): Promise<User | null> => {
+  if (!firebaseUser) return null;
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+    const userData = userDoc.data();
+
+    return {
+      uid: firebaseUser.uid,
+      email: firebaseUser.email || '',
+      displayName: firebaseUser.displayName || userData?.displayName || '',
+      role: userData?.role || 'student',
+      photoURL: firebaseUser.photoURL || undefined,
+      createdAt: userData?.createdAt || new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('Error converting Firebase user:', error);
+    return null;
+  }
+};
 
 export const signIn = async (email: string, password: string): Promise<User> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // Mock user data based on email
-  const userData: User = {
-    uid: Math.random().toString(36).substr(2, 9),
-    email,
-    displayName: email.includes('admin') ? 'Admin User' : 'Student User',
-    role: email.includes('admin') ? 'admin' : 'student',
-    createdAt: new Date().toISOString(),
-    lastLogin: new Date().toISOString(),
-  };
-  
-  currentUser = userData;
-  localStorage.setItem('mathlearn_user', JSON.stringify(userData));
-  return userData;
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = await convertFirebaseUser(userCredential.user);
+    
+    if (!user) {
+      throw new Error('Failed to get user data');
+    }
+
+    // Update last login
+    await setDoc(doc(db, 'users', user.uid), {
+      lastLogin: new Date().toISOString()
+    }, { merge: true });
+
+    return user;
+  } catch (error: any) {
+    console.error('Sign in error:', error);
+    throw new Error(error.message || 'Failed to sign in');
+  }
 };
 
 export const signUp = async (
@@ -28,40 +60,64 @@ export const signUp = async (
   displayName: string, 
   role: 'admin' | 'student' = 'student'
 ): Promise<User> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  const userData: User = {
-    uid: Math.random().toString(36).substr(2, 9),
-    email,
-    displayName,
-    role,
-    createdAt: new Date().toISOString(),
-    lastLogin: new Date().toISOString(),
-  };
-  
-  currentUser = userData;
-  localStorage.setItem('mathlearn_user', JSON.stringify(userData));
-  return userData;
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    
+    // Update the user's display name
+    await updateProfile(userCredential.user, {
+      displayName: displayName
+    });
+
+    const userData = {
+      uid: userCredential.user.uid,
+      email: userCredential.user.email || '',
+      displayName,
+      role,
+      createdAt: new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
+    };
+
+    // Save user data to Firestore
+    await setDoc(doc(db, 'users', userCredential.user.uid), userData);
+
+    return userData;
+  } catch (error: any) {
+    console.error('Sign up error:', error);
+    throw new Error(error.message || 'Failed to create account');
+  }
 };
 
 export const signOut = async (): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  currentUser = null;
-  localStorage.removeItem('mathlearn_user');
+  try {
+    await firebaseSignOut(auth);
+  } catch (error: any) {
+    console.error('Sign out error:', error);
+    throw new Error(error.message || 'Failed to sign out');
+  }
 };
 
 export const getCurrentUser = async (): Promise<User | null> => {
-  // Check localStorage for existing user
-  const storedUser = localStorage.getItem('mathlearn_user');
-  if (storedUser) {
-    try {
-      currentUser = JSON.parse(storedUser);
-      return currentUser;
-    } catch (error) {
-      localStorage.removeItem('mathlearn_user');
+  return new Promise((resolve) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      unsubscribe();
+      if (firebaseUser) {
+        const user = await convertFirebaseUser(firebaseUser);
+        resolve(user);
+      } else {
+        resolve(null);
+      }
+    });
+  });
+};
+
+// Real-time auth state listener
+export const onAuthStateChange = (callback: (user: User | null) => void) => {
+  return onAuthStateChanged(auth, async (firebaseUser) => {
+    if (firebaseUser) {
+      const user = await convertFirebaseUser(firebaseUser);
+      callback(user);
+    } else {
+      callback(null);
     }
-  }
-  
-  return null;
+  });
 };
